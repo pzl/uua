@@ -118,8 +118,8 @@ func (suite *UUATestSuite) TestGenerationIgnore() {
 	enc, err := t.Encode(suite.secrets)
 	suite.NoError(err)
 
-	ok, t2 := uua.Validate(enc, suite.secrets, 0)
-	suite.True(ok)
+	t2, err := uua.Validate(enc, suite.secrets, 0)
+	suite.NoError(err)
 	suite.NotNil(t2)
 }
 
@@ -130,8 +130,8 @@ func (suite *UUATestSuite) TestGenerationRevoked() {
 	enc, err := t.Encode(suite.secrets)
 	suite.NoError(err)
 
-	ok, t2 := uua.Validate(enc, suite.secrets, uint64(gen+1))
-	suite.False(ok)
+	t2, err := uua.Validate(enc, suite.secrets, uint64(gen+1))
+	suite.Error(err)
 	suite.Nil(t2)
 }
 
@@ -146,9 +146,9 @@ func (suite *UUATestSuite) TestRoundTrip() {
 	enc, err := t.Encode(suite.secrets)
 	suite.NoError(err)
 
-	ok, t2 := uua.Validate(enc, suite.secrets, gen)
+	t2, err := uua.Validate(enc, suite.secrets, gen)
 
-	suite.True(ok)
+	suite.NoError(err)
 	suite.Equal(t2.User, t.User)
 	suite.Equal(t2.App, t.App)
 	suite.Equal(t2.Version, t.Version)

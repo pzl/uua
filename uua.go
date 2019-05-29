@@ -80,13 +80,12 @@ func New(user string, app string, gen uint64, exp time.Duration) Token {
 }
 
 /*
-Decode and validate token `ts` given the secrets `s`. Optionally, use generation enforcement. Set gen=0 to disable. Returns token validity (bool) and the decoded Token itself if valid
+Decode and validate token `ts` given the secrets `s`. Optionally, use generation enforcement. Set gen=0 to disable. Returns the token and nil for a valid token string. Returns nil token and an error for an expired or otherwise invalid token.
 */
-func Validate(ts string, s Secrets, gen uint64) (bool, *Token) {
+func Validate(ts string, s Secrets, gen uint64) (*Token, error) {
 	spl := strings.Split(ts, ".")
 	if len(spl) != 2 {
-		fmt.Printf("invalid token: not two halves split by '.'  length: %d\n", len(spl))
-		return false, nil
+		return nil, fmt.Errorf("invalid token: not two halves split by '.'  length: %d", len(spl))
 	}
 
 	c64, s64 := []byte(spl[0]), []byte(spl[1])
@@ -94,40 +93,34 @@ func Validate(ts string, s Secrets, gen uint64) (bool, *Token) {
 	sig := make([]byte, base64.StdEncoding.DecodedLen(len(s64)))
 	n, err := base64.StdEncoding.Decode(sig, s64)
 	if err != nil {
-		fmt.Printf("invalid token: unable to b64 decode the signature: %v\n", err)
-		return false, nil
+		return nil, fmt.Errorf("invalid token: unable to b64 decode the signature: %v", err)
 	}
 	sig = sig[:n]
 
 	//validate signature
 	if !valid(c64, sig, &s.Key.PublicKey) {
-		fmt.Println("invalid token: invalid signature")
-		return false, nil
+		return nil, fmt.Errorf("invalid token: invalid signature")
 	}
 
 	t, err := Decode(spl[0], s)
 	if err != nil {
-		fmt.Printf("unable to decode: %v\n", err)
-		return false, nil
+		return nil, fmt.Errorf("unable to decode: %v", err)
 	}
 
 	// check contents, expiration, version, revocation?
 	if time.Now().After(t.Expiration) {
-		fmt.Printf("invalid token: expired at %s. It is %s\n", t.Expiration, time.Now())
-		return false, nil
+		return nil, fmt.Errorf("invalid token: expired at %s. It is %s", t.Expiration, time.Now())
 	}
 
 	//
 	if gen > 0 && t.Generation < gen {
-		fmt.Printf("invalid token: expired generation. Token gen: %d, current gen: %d\n", t.Generation, gen)
-		return false, nil
+		return nil, fmt.Errorf("invalid token: expired generation. Token gen: %d, current gen: %d", t.Generation, gen)
 	}
 
 	if t.Version != CURRENT_VERSION {
-		fmt.Printf("invalid token: not current version (got %d, want %d)\n", t.Version, CURRENT_VERSION)
-		return false, nil
+		return nil, fmt.Errorf("invalid token: not current version (got %d, want %d)", t.Version, CURRENT_VERSION)
 	}
-	return true, t
+	return t, nil
 }
 
 func Decode(ts string, s Secrets) (*Token, error) {
