@@ -1,37 +1,50 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/pzl/uua"
+	"github.com/pzl/uua/internal/auth"
 )
 
 type Handler struct {
-	s   uua.Secrets
-	gen uint64
+	s     uua.Secrets
+	auths []auth.AuthStrat
+	gen   uint64
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		User string `json:"user"`
-		App  string `json:"app,omitempty"`
-		Exp  int64  `json:"exp,omitempty"`
-	}
-
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&req)
+	// make a copy of the body for each authenticator
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil && err != io.EOF {
-		errJS(w, err.Error())
+		errJS(w, "error reading body: "+err.Error())
 		return
 	}
 
 	// verify credentials here...
+	var u *auth.UInfo
+	for _, a := range h.auths {
+		ok, uinfo := a.Authenticate(r, bytes.NewReader(body))
+		if !ok {
+			fmt.Fprintf(w, "failed authentication strategy %v\n", a)
+		} else {
+			u = uinfo
+			break
+		}
+	}
+	if u == nil {
+		errJS(w, "no authentication available")
+		return
+	}
 
 	// All ok, create and respond with token
-	t := uua.New(req.User, req.App, h.gen, time.Duration(req.Exp)*time.Second)
+	t := uua.New(u.User, u.App, h.gen, time.Duration(u.Exp)*time.Second)
 	tk, err := t.Encode(h.s)
 	if err != nil {
 		errJS(w, err.Error())

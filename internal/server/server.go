@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/pzl/uua"
+	"github.com/pzl/uua/internal/auth"
 )
 
 type server struct {
@@ -15,12 +16,13 @@ type server struct {
 	addr   string
 }
 
-func New(secrets uua.Secrets, gen uint64, addr string) *server {
+func New(secrets uua.Secrets, auths []auth.AuthStrat, gen uint64, addr string) *server {
 	return &server{
 		addr: addr,
 		h: &Handler{
-			s:   secrets,
-			gen: gen,
+			s:     secrets,
+			gen:   gen,
+			auths: auths,
 		},
 	}
 }

@@ -33,7 +33,7 @@ func main() {
 		Pass: []byte(opts.Pass),
 		Salt: []byte(opts.Salt),
 		Key:  getKey(opts),
-	}, opts.Gen, opts.Addr)
+	}, nil, opts.Gen, opts.Addr)
 	err = s.Start()
 	if err != nil {
 		exit(err.Error())
