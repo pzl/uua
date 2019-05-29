@@ -101,8 +101,8 @@ kpyZ2jezIDM23yv12txtoCD/jz0Qz0onOQD9sgY2HiGVdtUmiaEZ
 		Key:  key,
 	}
 
-	ok, t := uua.Decode(ts, sec, 0)
-	suite.True(ok)
+	t, err := uua.Decode(ts, sec)
+	suite.NoError(err)
 	suite.NotNil(t)
 
 	suite.Equal("decodeuser", t.User)
@@ -118,7 +118,7 @@ func (suite *UUATestSuite) TestGenerationIgnore() {
 	enc, err := t.Encode(suite.secrets)
 	suite.NoError(err)
 
-	ok, t2 := uua.Decode(enc, suite.secrets, 0)
+	ok, t2 := uua.Validate(enc, suite.secrets, 0)
 	suite.True(ok)
 	suite.NotNil(t2)
 }
@@ -130,7 +130,7 @@ func (suite *UUATestSuite) TestGenerationRevoked() {
 	enc, err := t.Encode(suite.secrets)
 	suite.NoError(err)
 
-	ok, t2 := uua.Decode(enc, suite.secrets, uint64(gen+1))
+	ok, t2 := uua.Validate(enc, suite.secrets, uint64(gen+1))
 	suite.False(ok)
 	suite.Nil(t2)
 }
@@ -146,7 +146,7 @@ func (suite *UUATestSuite) TestRoundTrip() {
 	enc, err := t.Encode(suite.secrets)
 	suite.NoError(err)
 
-	ok, t2 := uua.Decode(enc, suite.secrets, gen)
+	ok, t2 := uua.Validate(enc, suite.secrets, gen)
 
 	suite.True(ok)
 	suite.Equal(t2.User, t.User)

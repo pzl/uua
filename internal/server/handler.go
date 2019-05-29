@@ -61,7 +61,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	ts := r.Context().Value("token").(string)
 
-	valid, token := uua.Decode(ts, h.s, h.gen)
+	valid, token := uua.Validate(ts, h.s, h.gen)
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("{\"valid\":false}")) //nolint

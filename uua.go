@@ -80,9 +80,9 @@ func New(user string, app string, gen uint64, exp time.Duration) Token {
 }
 
 /*
-Decode a token `ts` given the secrets `s`. Optionally, use generation enforcement. Set gen=0 to disable. Returns token validity (bool) and the decoded Token itself if valid
+Decode and validate token `ts` given the secrets `s`. Optionally, use generation enforcement. Set gen=0 to disable. Returns token validity (bool) and the decoded Token itself if valid
 */
-func Decode(ts string, s Secrets, gen uint64) (bool, *Token) {
+func Validate(ts string, s Secrets, gen uint64) (bool, *Token) {
 	spl := strings.Split(ts, ".")
 	if len(spl) != 2 {
 		fmt.Printf("invalid token: not two halves split by '.'  length: %d\n", len(spl))
@@ -104,26 +104,11 @@ func Decode(ts string, s Secrets, gen uint64) (bool, *Token) {
 		return false, nil
 	}
 
-	ciphertext := make([]byte, base64.StdEncoding.DecodedLen(len(c64)))
-	n, err = base64.StdEncoding.Decode(ciphertext, c64)
-	if err != nil {
-		fmt.Printf("invalid token: unable to b64 decode the token: %v\n", err)
-	}
-	ciphertext = ciphertext[:n]
-
-	// decrypt
-	plaintext, err := decrypt(s.Pass, s.Salt, ciphertext)
-	if err != nil {
-		fmt.Printf("invalid token: could not decrypt: %v\n", err)
-		return false, nil
-	}
-
-	// deserialize
-	t, err := deserialize(plaintext)
-	if err != nil {
-		fmt.Printf("invalid token: could not deserialize: %v\n", err)
-		return false, nil
-	}
+  t, err := Decode(spl[0], s)
+  if err != nil {
+    fmt.Printf("unable to decode: %v\n", err)
+    return false, nil
+  }
 
 	// check contents, expiration, version, revocation?
 	if time.Now().After(t.Expiration) {
@@ -142,6 +127,32 @@ func Decode(ts string, s Secrets, gen uint64) (bool, *Token) {
 		return false, nil
 	}
 	return true, t
+}
+
+func Decode(ts string, s Secrets) (*Token, error) {
+	spl := strings.Split(ts, ".")
+	c64 := []byte(spl[0])
+
+	ciphertext := make([]byte, base64.StdEncoding.DecodedLen(len(c64)))
+  n, err := base64.StdEncoding.Decode(ciphertext, c64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: unable to b64 decode the token: %v", err)
+	}
+	ciphertext = ciphertext[:n]
+
+	// decrypt
+	plaintext, err := decrypt(s.Pass, s.Salt, ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: could not decrypt: %v", err)
+	}
+
+	// deserialize
+	t, err := deserialize(plaintext)
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: could not deserialize: %v", err)
+	}
+
+  return t, nil
 }
 
 func (t Token) Encode(s Secrets) (string, error) {
