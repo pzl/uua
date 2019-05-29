@@ -1,8 +1,8 @@
-TARGETS=uua
+TARGETS=$(notdir $(wildcard cmd/*))
 
 all: build
 
-build: bin/uua
+build: $(TARGETS:%=bin/%)
 
 bin/% : cmd/% cmd/%/*
 	go build -o $@ ./$<
