@@ -1,28 +1,49 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/pzl/uua"
 )
 
 type server struct {
 	router *chi.Mux
 	srv    *http.Server
 	h      *Handler
-	keys   struct{}
+	addr   string
 }
 
-func New() *server {
-	return &server{}
+func New(secrets uua.Secrets, gen uint64, addr string) *server {
+	return &server{
+		addr: addr,
+		h: &Handler{
+			s:   secrets,
+			gen: gen,
+		},
+	}
 }
 
 func (s *server) Start() error {
-	// Read keys?
-
 	s.router = chi.NewRouter()
 	s.routes()
 
+	//ListenAndServe
+	s.srv = &http.Server{
+		Addr:    s.addr,
+		Handler: s.router,
+		//@todo: timeouts
+	}
+	err := s.srv.ListenAndServe() // blocks
+
+	if err != http.ErrServerClosed {
+		fmt.Printf("Http Server stopped unexpectedly: %v", err)
+		s.Shutdown()
+	} else {
+		fmt.Printf("server stopped")
+		return nil
+	}
 	return nil
 }
 

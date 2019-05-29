@@ -5,7 +5,6 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -24,7 +23,6 @@ func (s *server) routes() {
 		v1.Use(apiVer(1))
 		v1.Post("/login", s.h.Login)
 		v1.Post("/verify", getBodyToken(s.h.Verify))
-		v1.Get("/verify/{token}", getURLToken(s.h.Verify))
 	})
 
 	s.router.NotFound(notFound())
@@ -61,20 +59,8 @@ func notFound() http.HandlerFunc {
 func errJS(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte(msg))
+	w.Write([]byte("{\"error\":\"" + msg + "\""))
 	return
-}
-
-func getURLToken(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := chi.URLParam(r, "token")
-		if strings.TrimSpace(token) == "" {
-			notFound()(w, r)
-			return
-		}
-		ctx := context.WithValue(r.Context(), "token", token)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
 }
 
 func getBodyToken(next http.HandlerFunc) http.HandlerFunc {
@@ -84,9 +70,10 @@ func getBodyToken(next http.HandlerFunc) http.HandlerFunc {
 			errJS(w, "{\"error\":\"unable to read token\", \"detail\":\""+err.Error()+"\"}")
 			return
 		}
+
 		token := bytes.TrimSpace(buf)
 		if len(token) == 0 {
-			errJS(w, "{\"error\":\"no token provided\"}")
+			errJS(w, "{\"error\", \"no token provided\"}")
 			return
 		}
 
