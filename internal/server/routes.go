@@ -59,7 +59,7 @@ func notFound() http.HandlerFunc {
 func errJS(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("{\"error\":\"" + msg + "\""))
+	w.Write([]byte("{\"error\":\"" + msg + "\"}"))
 	return
 }
 
