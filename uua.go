@@ -95,7 +95,7 @@ func Validate(ts string, s Secrets, gen uint64) (bool, *Token) {
 	n, err := base64.StdEncoding.Decode(sig, s64)
 	if err != nil {
 		fmt.Printf("invalid token: unable to b64 decode the signature: %v\n", err)
-    return false, nil
+		return false, nil
 	}
 	sig = sig[:n]
 
@@ -105,11 +105,11 @@ func Validate(ts string, s Secrets, gen uint64) (bool, *Token) {
 		return false, nil
 	}
 
-  t, err := Decode(spl[0], s)
-  if err != nil {
-    fmt.Printf("unable to decode: %v\n", err)
-    return false, nil
-  }
+	t, err := Decode(spl[0], s)
+	if err != nil {
+		fmt.Printf("unable to decode: %v\n", err)
+		return false, nil
+	}
 
 	// check contents, expiration, version, revocation?
 	if time.Now().After(t.Expiration) {
@@ -135,7 +135,7 @@ func Decode(ts string, s Secrets) (*Token, error) {
 	c64 := []byte(spl[0])
 
 	ciphertext := make([]byte, base64.StdEncoding.DecodedLen(len(c64)))
-  n, err := base64.StdEncoding.Decode(ciphertext, c64)
+	n, err := base64.StdEncoding.Decode(ciphertext, c64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid token: unable to b64 decode the token: %v", err)
 	}
@@ -153,7 +153,7 @@ func Decode(ts string, s Secrets) (*Token, error) {
 		return nil, fmt.Errorf("invalid token: could not deserialize: %v", err)
 	}
 
-  return t, nil
+	return t, nil
 }
 
 func (t Token) Encode(s Secrets) (string, error) {
