@@ -95,6 +95,7 @@ func Validate(ts string, s Secrets, gen uint64) (bool, *Token) {
 	n, err := base64.StdEncoding.Decode(sig, s64)
 	if err != nil {
 		fmt.Printf("invalid token: unable to b64 decode the signature: %v\n", err)
+    return false, nil
 	}
 	sig = sig[:n]
 
