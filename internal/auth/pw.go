@@ -1,22 +1,24 @@
 package auth
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 
-	"golang.org/x/crypto/argon2"
+	"github.com/pzl/uua/internal/mkpass"
 )
 
-var salted = []byte{0x30, 0x02, 0xde, 0x40}
-
 type pw struct {
-	valid map[string]string
+	valid map[string]Credential
 }
 
-func NewPassword(valid map[string]string) *pw {
+type Credential struct {
+	Hash []byte
+	Salt []byte
+}
+
+func NewPassword(valid map[string]Credential) *pw {
 	return &pw{
 		valid: valid,
 	}
@@ -37,20 +39,18 @@ func (p pw) Authenticate(r *http.Request, body io.Reader) (bool, *UInfo) {
 	}
 
 	// look for stored hash for user
-	hashed, found := p.valid[strings.ToLower(req.User)]
+	cred, found := p.valid[strings.ToLower(req.User)]
 	if !found {
 		return false, nil
 	}
 
 	// compare hashes
-	h := argon2.IDKey([]byte(req.Password), salted, 1, 64*1024, 4, 32)
-	if bytes.Equal([]byte(hashed), h) {
+	if mkpass.Match([]byte(req.Password), cred.Salt, cred.Hash) {
 		return true, &UInfo{
 			User: req.User,
 			App:  req.App,
 			Exp:  req.Exp,
 		}
 	}
-
 	return false, nil
 }
