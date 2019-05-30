@@ -15,7 +15,7 @@ import (
 
 type Handler struct {
 	s     uua.Secrets
-	auths []auth.AuthStrat
+	auths []auth.Method
 	gen   uint64
 }
 

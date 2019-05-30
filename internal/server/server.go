@@ -16,7 +16,7 @@ type server struct {
 	addr   string
 }
 
-func New(secrets uua.Secrets, auths []auth.AuthStrat, gen uint64, addr string) *server {
+func New(secrets uua.Secrets, auths []auth.Method, gen uint64, addr string) *server {
 	return &server{
 		addr: addr,
 		h: &Handler{

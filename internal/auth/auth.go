@@ -11,6 +11,6 @@ type UInfo struct {
 	Exp  int64
 }
 
-type AuthStrat interface {
+type Method interface {
 	Authenticate(r *http.Request, body io.Reader) (bool, *UInfo)
 }
