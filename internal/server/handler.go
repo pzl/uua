@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/pzl/uua"
@@ -64,8 +65,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	ts := r.Context().Value("token").(string)
 
-	valid, token := uua.Validate(ts, h.s, h.gen)
-	if !valid {
+	token, err := uua.Validate(ts, h.s, h.gen)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "token rejected: %v\n", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("{\"valid\":false}")) //nolint
 		return
