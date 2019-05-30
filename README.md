@@ -7,6 +7,58 @@ You provide it with a token request (login): username, secret (password, key, so
 
 This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, without the header. 
 
+
+Usage
+------
+
+```sh
+ssh-keygen -t rsa -f private_rsa # create a signing RSA key
+uua -p somepass -s mysalt -f private_rsa
+```
+
+to avoid specifying credentials on the command line, you can use ENV vars, or a config file:
+
+```sh
+ssh-keygen -t rsa -f private_rsa # create a signing RSA key
+echo "
+file: private_rsa
+pass: encpass
+salt: x3*h9dw0e
+" > config.yml # create a config file
+CONFIG_FILE=config.yml
+uua  # or -c config.yml
+```
+
+The parameters are processed in the following precedence, highest first:
+
+1) Command line arg (e.g. `-s mysalt56`)
+1) Env var (e.g. `SALT=somesalt`)
+1) Config file (via `-c FILEPATH`)  (supported extensions: `json, toml, yaml, yml` for all config files)
+1) Config file (via `$CONFIG_FILE` env)
+1) Config file (via default search paths)
+1) Default values (generation and listen address have defaults)
+
+The arguments are:
+
+```
+  -p, --pass string   symmetric encryption password               ENV: PASS
+  -s, --salt string   symmetric encryption salt                   ENV: SALT
+  -r, --rsa string    RSA private key string for signing. Recommended to use a file instead.  ENV: RSA
+  -f, --file string   RSA private key file path, for signing      ENV: RSA_FILE
+  -a, --addr string   Server listening Address (default ":6089")  ENV: ADDR
+  -g, --gen uint      current token generation. Set to 0 to disable (default 1) ENV: GEN
+  -c, --conf string   Config file to read values from             ENV: CONFIG_FILE
+```
+
+
+The required parameters (via any method above) are: **pass**, **salt**, and an RSA key, _either_ through **rsa** or **file**. 
+
+The key names for these properties match their `--long` flag names. I.e. `--pass` will be `pass: x`
+
+
+The Token
+----------
+
 A token looks like this:
 
 ```
