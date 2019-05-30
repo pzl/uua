@@ -17,6 +17,7 @@ func (s *server) routes() {
 	s.router.Use(middleware.Heartbeat("/ping"))
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(contentJSON)
+	s.router.Use(HSTS)
 	//https://github.com/go-chi/chi#auxiliary-middlewares--packages
 
 	s.router.Route("/api/v1", func(v1 chi.Router) {
@@ -42,6 +43,15 @@ func apiVer(ver int) mware {
 func contentJSON(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+// forces https
+func HSTS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		next.ServeHTTP(w, r)
 	})
 }
