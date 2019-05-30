@@ -44,7 +44,9 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	pflag.Parse()
 	must(viper.BindPFlags(pflag.CommandLine))
 
-	if confFile := viper.GetString("conf"); confFile != "" {
+	explicitConf := false
+	if confFile := viper.GetString("config"); confFile != "" {
+		explicitConf = true
 		viper.SetConfigFile(confFile)
 		/* Viper does not support overriding config file type https://github.com/spf13/viper/pull/535
 		ext := filepath.Ext(confFile)
@@ -58,8 +60,13 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	}
 
 	err := viper.ReadInConfig()
-	if _, nf := err.(viper.ConfigFileNotFoundError); err != nil && !nf {
-		exit(err.Error())
+	if err != nil {
+		_, nf := err.(viper.ConfigFileNotFoundError)
+		if explicitConf {
+			exit(err.Error())
+		} else if !nf {
+			exit(err.Error())
+		}
 	}
 
 	pass := viper.GetString("pass")
