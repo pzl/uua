@@ -55,6 +55,22 @@ The required parameters (via any method above) are: **pass**, **salt**, and an R
 
 The key names for these properties match their `--long` flag names. I.e. `--pass` will be `pass: x`
 
+Example full config file:
+
+```yaml
+pass: y0urT0kenEncr7ptn
+salt: aRandomSaltValue
+file: /path/to/your/signing/rsa.key
+addr: :443
+gen: 6
+auth:
+  password:
+    user1: b6b14ccd83113e4b267e2f0cd150fe2c53f35ae07dcfcdd1d49f4acb30ea681d.a877f3f295643388d873fe378338b9f4
+    user: f082b78b194d2d2487bf0bc351a6eda4dacd244f0b51e27136b7d0e97ee24f44.59d52b113725090d812c2dcbaf6e4cb4
+
+```
+
+`uua -c conf.yaml` will start the server with these parameters. And `user1` and `user2` are the only valid users, identified by their respective passwords (which we don't know)
 
 Authenticating Users
 ---------------------
@@ -67,7 +83,7 @@ Users are created by adding an entry to the config file (examples below). Passwo
 
 Examples:  
 yaml
-```yml
+```yaml
 # YAML ...
 auth:
     password:
