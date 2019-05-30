@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -32,7 +31,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	for _, a := range h.auths {
 		ok, uinfo := a.Authenticate(r, bytes.NewReader(body))
 		if !ok {
-			fmt.Fprintf(w, "failed authentication strategy %v\n", a)
+			w.WriteHeader(http.StatusUnauthorized)
+			writeJSON(w, map[string]string{
+				"error": "invalid login",
+			})
+			return
 		} else {
 			u = uinfo
 			break
