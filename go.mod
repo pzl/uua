@@ -8,5 +8,4 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	golang.org/x/tools v0.0.0-20190530043710-12d73424210d // indirect
 )
