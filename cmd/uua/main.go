@@ -20,12 +20,9 @@ func main() {
 	secrets, auths, gen, addr := parseCLI()
 
 	s := server.New(secrets, auths, gen, addr)
-	err := s.Start()
-	if err != nil {
-		exit(err.Error())
-	}
+	must(s.Start())
 	// handle signals?
-	defer s.Shutdown()
+	defer must(s.Shutdown())
 }
 
 func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
@@ -40,6 +37,7 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	setArgS("rsa", "r", "", "RSA private key string for signing. Recommended to use a file instead.")
 	setArgS("config", "c", "", "Config file to read values from", "CONFIG_FILE")
 	setArgU("gen", "g", 1, "current token generation. Set to 0 to disable")
+	// @todo : -w bool flag for watching config for changes? need to propagate to handler
 
 	pflag.Parse()
 	must(viper.BindPFlags(pflag.CommandLine))
