@@ -40,6 +40,7 @@ func (s *server) Start() error {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
+	fmt.Printf("listening on %s\n", s.addr)
 	err := s.srv.ListenAndServe() // blocks
 
 	if err != http.ErrServerClosed {
