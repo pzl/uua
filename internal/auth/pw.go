@@ -10,15 +10,15 @@ import (
 )
 
 type pw struct {
-	valid map[string]Credential
+	valid map[string]Password
 }
 
-type Credential struct {
+type Password struct {
 	Hash []byte
 	Salt []byte
 }
 
-func NewPassword(valid map[string]Credential) *pw {
+func NewPassword(valid map[string]Password) *pw {
 	return &pw{
 		valid: valid,
 	}

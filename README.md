@@ -56,6 +56,45 @@ The required parameters (via any method above) are: **pass**, **salt**, and an R
 The key names for these properties match their `--long` flag names. I.e. `--pass` will be `pass: x`
 
 
+Authenticating Users
+---------------------
+
+Right now the only authentication method is username:password combo. More methods are planned to be added in the future.
+
+### Passwords
+
+Users are created by adding an entry to the config file (examples below). Passwords are _never_ stored. Only the [Argon2](https://en.wikipedia.org/wiki/Argon2) hash, and salt. The user's password cannot be recovered from this information. Generating the hash and salt to insert into the config file can be done with the included `mkpass` utility. run `./bin/mkpass` and it will prompt for a password. Hit `Enter` and a `hash.salt` will be printed out. This can then be entered into the conf file with the desired username.
+
+Examples:  
+yaml
+```yml
+# YAML ...
+auth:
+    password:
+        alice: 5911c1e671a5c66d2335d2a704b9844ad3376adcca8e2de194e161e5fbf283ee.adae8cdd7ea456dad56483ce3303ce14
+        bob: 9edd51a088332778885b8743be3859bd847bf5399978717988e437380ec5e315.a6e95c4049c218cae9e047428d526872
+```
+json
+```json
+{
+  "auth": {
+    "password": {
+      "alice":"5911c1e671a5c66d2335d2a704b9844ad3376adcca8e2de194e161e5fbf283ee.adae8cdd7ea456dad56483ce3303ce14",
+      "bob":"9edd51a088332778885b8743be3859bd847bf5399978717988e437380ec5e315.a6e95c4049c218cae9e047428d526872"
+    }
+  }
+}
+
+```
+toml
+```toml
+[auth]
+  [auth.password]
+    bob = "9edd51a088332778885b8743be3859bd847bf5399978717988e437380ec5e315.a6e95c4049c218cae9e047428d526872"
+    alice = "5911c1e671a5c66d2335d2a704b9844ad3376adcca8e2de194e161e5fbf283ee.adae8cdd7ea456dad56483ce3303ce14"
+```
+
+
 The Token
 ----------
 

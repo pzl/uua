@@ -2,10 +2,12 @@ package main
 
 import (
 	"crypto/rsa"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/pzl/uua"
 	"github.com/pzl/uua/internal/auth"
@@ -42,6 +44,7 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	pflag.Parse()
 	must(viper.BindPFlags(pflag.CommandLine))
 
+	// parse config file if found
 	explicitConf := false
 	if confFile := viper.GetString("config"); confFile != "" {
 		explicitConf = true
@@ -56,7 +59,6 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 		}
 		*/
 	}
-
 	err := viper.ReadInConfig()
 	if err != nil {
 		_, nf := err.(viper.ConfigFileNotFoundError)
@@ -67,12 +69,33 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 		}
 	}
 
+	// parse auth methods
+	methods := viper.GetStringMap("auth")
+	auths := make([]auth.Method, 0, len(methods))
+	for method := range methods {
+		switch method {
+		case "password":
+			users := viper.Sub("auth").GetStringMapString("password")
+			creds := make(map[string]auth.Password)
+			for uname, c := range users {
+				hash, salt := parseHashString(c)
+				creds[uname] = auth.Password{
+					Hash: hash,
+					Salt: salt,
+				}
+			}
+			auths = append(auths, auth.NewPassword(creds))
+		default:
+			fmt.Printf("unrecognized authentication method: %s. Skipping\n", method)
+			continue
+		}
+	}
+
 	pass := viper.GetString("pass")
 	salt := viper.GetString("salt")
 	key := getKey(viper.GetString("file"), viper.GetString("rsa"))
 	gen := viper.GetUint64("gen")
 	addr := viper.GetString("addr")
-	auths := []auth.Method{}
 
 	if pass == "" {
 		exit("token encryption password is required")
@@ -135,6 +158,19 @@ func getKey(file string, content string) *rsa.PrivateKey {
 		exit("error: Not an RSA key")
 	}
 	return key
+}
+
+func parseHashString(s string) (hash []byte, salt []byte) {
+	var err error
+	spl := strings.Split(s, ".")
+	if len(spl) != 2 {
+		exit(fmt.Sprintf("invalid password format: %s\nexpecting format HASH.SALT\n", s))
+	}
+	hash, err = hex.DecodeString(spl[0])
+	must(err)
+	salt, err = hex.DecodeString(spl[1])
+	must(err)
+	return hash, salt
 }
 
 func must(e error) {
