@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/pzl/uua"
@@ -33,9 +34,11 @@ func (s *server) Start() error {
 
 	//ListenAndServe
 	s.srv = &http.Server{
-		Addr:    s.addr,
-		Handler: s.router,
-		//@todo: timeouts
+		Addr:           s.addr,
+		Handler:        s.router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
 	}
 	err := s.srv.ListenAndServe() // blocks
 
