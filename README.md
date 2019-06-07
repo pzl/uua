@@ -11,22 +11,28 @@ This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, 
 Usage
 ------
 
+**Prerequisites**:
+
+- Generate RSA key for signing tokens: `ssh-keygen -t rsa -f signing_rsa`
+- Have or generate `server.crt` and `server.key` for SSL (use `make key` to make quick test certs)
+
+---
+
+**Simple Use**:
+
 ```sh
-ssh-keygen -t rsa -f private_rsa # create a signing RSA key
 uua -p somepass -s mysalt -f private_rsa
 ```
 
 to avoid specifying credentials on the command line, you can use ENV vars, or a config file:
 
 ```sh
-ssh-keygen -t rsa -f private_rsa # create a signing RSA key
 echo "
 file: private_rsa
 pass: encpass
 salt: x3*h9dw0e
 " > config.yml # create a config file
-CONFIG_FILE=config.yml
-uua  # or -c config.yml
+CONFIG_FILE=config.yml uua  # or -c config.yml
 ```
 
 The parameters are processed in the following precedence, highest first:
