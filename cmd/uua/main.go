@@ -12,6 +12,7 @@ import (
 
 	"github.com/pzl/uua"
 	"github.com/pzl/uua/internal/auth"
+	"github.com/pzl/uua/internal/logger"
 	"github.com/pzl/uua/internal/server"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -29,6 +30,7 @@ func main() {
 }
 
 func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
+
 	viper.SetConfigName("uua")
 	viper.AddConfigPath("/srv/apps/uua")
 	viper.AddConfigPath(".")
@@ -78,6 +80,8 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 		}
 	}
 
+	log := logger.New(viper.GetBool("json")).L()
+
 	// parse auth methods
 	methods := viper.GetStringMap("auth")
 	auths := make([]auth.Method, 0, len(methods))
@@ -95,7 +99,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 			}
 			auths = append(auths, auth.NewPassword(creds))
 		default:
-			fmt.Printf("unrecognized authentication method: %s. Skipping\n", method)
+			log.Warnf("unrecognized authentication method: %s. Skipping\n", method)
 			continue
 		}
 	}
@@ -116,12 +120,13 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 		exit("token encryption salt is required")
 	}
 	if key == nil {
+		log.Warn("no RSA signing key provided. Generating one")
 		key, err = rsa.GenerateKey(rand.Reader, 256)
 		must(err)
 	}
 
 	if auths == nil || len(auths) == 0 {
-		fmt.Fprintln(os.Stderr, "Warning: no authentication methods configured. Will not be able to login or generate new tokens")
+		log.Warn("Warning: no authentication methods configured. Will not be able to login or generate new tokens")
 	}
 
 	opts := make([]server.OptFunc, 0, 4)
