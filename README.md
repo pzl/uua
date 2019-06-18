@@ -67,6 +67,8 @@ Example full config file:
 pass: y0urT0kenEncr7ptn
 salt: aRandomSaltValue
 sign-key: /path/to/your/signing/rsa.key
+ssl-key:  /path/to/SSL/private.key
+ssl-cert: /path/to/signed/server.crt
 addr: :443
 gen: 6
 auth:

@@ -22,8 +22,8 @@ func (s *server) routes() {
 
 	s.router.Route("/api/v1", func(v1 chi.Router) {
 		v1.Use(apiVer(1))
-		v1.Post("/login", s.h.Login)
-		v1.Post("/verify", getBodyToken(s.h.Verify))
+		v1.Post("/login", s.Login)
+		v1.Post("/verify", getBodyToken(s.Verify))
 	})
 
 	s.router.NotFound(notFound())

@@ -16,7 +16,6 @@ type OptFunc func(*Cfg)
 type server struct {
 	router *chi.Mux
 	srv    *http.Server
-	h      *Handler
 	cfg    *Cfg
 }
 
@@ -44,12 +43,8 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 			o(&cfg)
 		}
 	}
-
 	return &server{
 		cfg: &cfg,
-		h: &Handler{
-			cfg: &cfg,
-		},
 	}
 }
 
