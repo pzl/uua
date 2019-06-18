@@ -14,11 +14,10 @@ This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, 
 Quickstart
 -----------
 
-### Generate Signing Key, SSL Keys
+### Generate Signing Key
 
 ```sh
 ssh-keygen -t rsa -f sign.key # create a private RSA key
-openssl req -x509 -nodes -newkey rsa:2048 -keyout server.key -out server.crt -days 3650 # generate self-signed SSL certs
 ```
 
 ### Create Users
@@ -34,8 +33,6 @@ echo "
 pass: some-encryption-password
 salt: abc123-random-salt
 sign-key: sign.key
-ssl-key: server.key
-ssl-cert: server.crt
 auth:
     password:
         yourusername: hash-from-mkpass
@@ -55,7 +52,7 @@ uua -c uua.yaml
 **Get Token**
 
 ```sh
-curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost:6089/api/v1/login
+curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' localhost:6089/api/v1/login
 # result will be either:
 # {"error":"invalid login"}
 # or 
@@ -66,13 +63,44 @@ curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost
 **Auth with Token**
 
 ```sh
-curl -k -XPOST -d "$TOKEN" https://localhost:6089/api/v1/verify
+curl -k -XPOST -d "$TOKEN" localhost:6089/api/v1/verify
 # response: 
 # {
 #   "token":{"v":1,"u":"yourusername","g":1,"a":"","e":1560876042},
 #   "valid":true
 # }
 ```
+
+
+### (Recommended) Enable SSL
+
+**Generate self-signed cert & key**, (if you don't already have these from somewhere else, or are using Let's Encrypt, etc)
+
+```sh
+openssl req -x509 -nodes -newkey rsa:2048 -keyout server.key -out server.crt -days 3650
+```
+
+**Add to Config**
+
+```sh
+echo "
+ssl-key: server.key
+ssl-cert: server.crt
+" >> uua.yaml
+```
+
+Then you can continue to run as normal: `uua -c uua.yaml`
+
+And with curl:
+
+```sh
+curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost:6089/api/v1/login
+# result will be either:
+# {"error":"invalid login"}
+# or 
+# {"token":"64vly..."}
+```
+
 
 Usage
 ------

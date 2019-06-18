@@ -36,8 +36,8 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 		Gen:      1,
 		Auths:    auths,
 		TokenSig: secrets,
-		SSLCert:  "server.crt",
-		SSLKey:   "server.key",
+		SSLCert:  "",
+		SSLKey:   "",
 		JSONLog:  false,
 	}
 
@@ -52,7 +52,7 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 	}
 }
 
-func (s *server) Start() error {
+func (s *server) Start() (err error) {
 	s.router = chi.NewRouter()
 	s.routes()
 
@@ -76,11 +76,17 @@ func (s *server) Start() error {
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
-		TLSConfig:      sl,
-		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
-	s.l.L().Infof("listening on %s", s.cfg.Addr)
-	err := s.srv.ListenAndServeTLS(s.cfg.SSLCert, s.cfg.SSLKey) // blocks
+	if s.cfg.SSLCert != "" && s.cfg.SSLKey != "" {
+		s.srv.TLSConfig = sl
+		s.srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
+		s.l.L().Infof("listening on %s", s.cfg.Addr)
+		err = s.srv.ListenAndServeTLS(s.cfg.SSLCert, s.cfg.SSLKey)
+	} else {
+		s.l.L().Warn("SSL disabled. Sending credentials over HTTP is not recommended")
+		s.l.L().Infof("listening on %s", s.cfg.Addr)
+		err = s.srv.ListenAndServe()
+	}
 
 	if err != http.ErrServerClosed {
 		s.l.L().WithError(err).Error("Http Server stopped unexpectedly")
