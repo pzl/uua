@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
 	"fmt"
@@ -115,7 +116,8 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 		exit("token encryption salt is required")
 	}
 	if key == nil {
-		exit("token RSA signing key is required")
+		key, err = rsa.GenerateKey(rand.Reader, 256)
+		must(err)
 	}
 
 	if auths == nil || len(auths) == 0 {
@@ -164,19 +166,18 @@ func getKey(file string, content string) *rsa.PrivateKey {
 	var err error
 	var rsaBuf []byte
 
-	if file == "" && content == "" {
-		exit("error: no RSA file or text given")
-	}
-
 	if file != "" {
 		rsaBuf, err = ioutil.ReadFile(file)
 		if err != nil && err != io.EOF {
 			exit(err.Error())
 		}
-	} else {
+	} else if content != "" {
 		rsaBuf = []byte(content)
 	}
 
+	if rsaBuf == nil {
+		return nil
+	}
 	k, err := ssh.ParseRawPrivateKey(rsaBuf)
 	must(err)
 	key, ok := k.(*rsa.PrivateKey)

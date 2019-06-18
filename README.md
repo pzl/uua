@@ -14,20 +14,12 @@ This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, 
 Quickstart
 -----------
 
-#### Generate Signing Key
-
-```sh
-ssh-keygen -t rsa -f sign.key # create a private RSA key
-```
-
-
 #### Create config file
 
 ```sh
 echo "
 pass: some-encryption-password
 salt: abc123-random-salt
-sign-key: sign.key
 auth:
   password:
 " > uua.yaml
@@ -69,6 +61,20 @@ curl -k -XPOST -d "$TOKEN" localhost:6089/api/v1/verify
 
 see [Authenticating Users](#authenticating-users)
 
+
+### (Recommended) Generate signing key
+
+You can run `uua` without a pre-generated RSA key, but it will generate a new one each time it restarts. This invalidates all previous tokens, as the signature is tied to the RSA key. Using a temporary generated key only allows for tokens valid until the next restart.
+
+For tokens to persist, you need to use a static RSA key.
+
+```sh
+ssh-keygen -t rsa -f sign.key # create a private RSA key
+echo "sign-key: sign.key" >> uua.yaml
+```
+
+
+
 #### (Recommended) Enable SSL
 
 **Generate self-signed cert & key**, (if you don't already have these from somewhere else, or are using Let's Encrypt, etc)
@@ -86,9 +92,7 @@ ssl-cert: server.crt
 " >> uua.yaml
 ```
 
-Then you can continue to run as normal: `uua -c uua.yaml`
-
-And with curl:
+Then you can continue to run as normal: `uua -c uua.yaml`. and POST with:
 
 ```sh
 curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost:6089/api/v1/login
