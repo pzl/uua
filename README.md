@@ -8,6 +8,70 @@ You provide it with a token request (login): username, secret (password, key, so
 This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, without the header. 
 
 
+
+Quickstart
+-----------
+
+### Generate Signing Key, SSL Keys
+
+```sh
+ssh-keygen -t rsa -f sign.key # create a private RSA key
+openssl req -x509 -nodes -newkey rsa:2048 -keyout server.key -out server.crt -days 3650 # generate self-signed SSL certs
+```
+
+### Create Users
+
+```sh
+mkpass # have each user run this, enter a password to get a hash
+```
+
+### Create config file
+
+```sh
+echo "
+pass: some-encryption-password
+salt: abc123-random-salt
+sign-key: sign.key
+ssl-key: server.key
+ssl-cert: server.crt
+auth:
+    password:
+        yourusername: hash-from-mkpass
+        anotheruser: hash-from-mpass
+" > uua.yaml
+```
+
+### Run
+
+```sh
+uua -c uua.yaml
+```
+
+
+### Use
+
+**Get Token**
+
+```sh
+curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost:6089/api/v1/login
+# result will be either:
+# {"error":"invalid login"}
+# or 
+# {"token":"64vly..."}
+```
+
+
+**Auth with Token**
+
+```sh
+curl -k -XPOST -d "$TOKEN" https://localhost:6089/api/v1/verify
+# response: 
+# {
+#   "token":{"v":1,"u":"yourusername","g":1,"a":"","e":1560876042},
+#   "valid":true
+# }
+```
+
 Usage
 ------
 
@@ -17,12 +81,6 @@ Usage
 - Have or generate `server.crt` and `server.key` for SSL (use `make key` to make quick test certs)
 
 ---
-
-**Simple Use**:
-
-```sh
-uua -p somepass -s mysalt -k private_rsa
-```
 
 to avoid specifying credentials on the command line, you can use ENV vars, or a config file:
 
@@ -49,11 +107,15 @@ The arguments are:
 ```
   -p, --pass     string   symmetric encryption password               ENV: PASS
   -s, --salt     string   symmetric encryption salt                   ENV: SALT
-  -r, --rsa     string    RSA private key string for signing. Recommended to use a file instead.  ENV: RSA
+  -r, --rsa      string   RSA private key string for signing. Recommended to use a file instead.  ENV: RSA
   -k, --sign-key string   RSA private key file path, for signing      ENV: SIGN_KEY
+  -y, --ssl-key  string   path to SSL private key
+  -t, --ssl-cert string   path to SSL certificate file
   -a, --addr     string   Server listening Address (default ":6089")  ENV: ADDR
-  -g, --gen     uint      current token generation. Set to 0 to disable (default 1) ENV: GEN
-  -c, --conf     string   Config file to read values from             ENV: CONFIG_FILE
+  -g, --gen      uint     current token generation. Set to 0 to disable (default 1) ENV: GEN
+  -j, --json              output logs in JSON formt
+  -c, --config   string   Config file to read values from             ENV: CONFIG_FILE
+  -d, --conf-dir string   Search this directory for config files
 ```
 
 
@@ -71,6 +133,7 @@ ssl-key:  /path/to/SSL/private.key
 ssl-cert: /path/to/signed/server.crt
 addr: :443
 gen: 6
+json: true
 auth:
   password:
     user1: b6b14ccd83113e4b267e2f0cd150fe2c53f35ae07dcfcdd1d49f4acb30ea681d.a877f3f295643388d873fe378338b9f4
