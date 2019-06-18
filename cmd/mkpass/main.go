@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -10,12 +11,12 @@ import (
 )
 
 func main() {
-	fmt.Print("Enter pass: ")
+	fmt.Fprint(os.Stderr, "Enter pass: ")
 	pass, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("")
+	fmt.Fprintln(os.Stderr, "")
 
 	hash, salt, err := mkpass.Create(pass)
 	if err != nil {

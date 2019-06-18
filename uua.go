@@ -60,12 +60,22 @@ func (t *Token) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+/*
+Secrets represents the credentials required to encrypt and serialize a Token.
+
+Tokens will be symmetrically encrypted with the given Pass and Salt, and then signed with the provided RSA Key.
+*/
 type Secrets struct {
 	Pass []byte
 	Salt []byte
 	Key  *rsa.PrivateKey
 }
 
+/*
+Creates a new Token object, unencrypted, unsigned. Once encoded with .Encode(secrets), it is a valid token string that can used to authenticate as a user.
+
+It is up to you to validate credentials or access *before* granting a token.
+*/
 func New(user string, app string, gen uint64, exp time.Duration) Token {
 	if exp == 0 || exp > MAX_EXP {
 		exp = DEFAULT_EXP
@@ -80,7 +90,9 @@ func New(user string, app string, gen uint64, exp time.Duration) Token {
 }
 
 /*
-Decode and validate token `ts` given the secrets `s`. Optionally, use generation enforcement. Set gen=0 to disable. Returns the token and nil for a valid token string. Returns nil token and an error for an expired or otherwise invalid token.
+Validate token string `ts` given the secrets `s`. Optionally, use generation enforcement. Set gen=0 to disable.
+
+Returns the token for a valid token string. Returns nil token and an error for an expired or otherwise invalid token.
 */
 func Validate(ts string, s Secrets, gen uint64) (*Token, error) {
 	spl := strings.Split(ts, ".")
@@ -123,6 +135,12 @@ func Validate(ts string, s Secrets, gen uint64) (*Token, error) {
 	return t, nil
 }
 
+/*
+Decrypt a token string, without enforcing Generation, Expiration, or Signatures
+
+
+This is not for use in authorizing users. But it may be used to check generation, expiration or contents.
+*/
 func Decode(ts string, s Secrets) (*Token, error) {
 	spl := strings.Split(ts, ".")
 	c64 := []byte(spl[0])
@@ -149,6 +167,11 @@ func Decode(ts string, s Secrets) (*Token, error) {
 	return t, nil
 }
 
+/*
+Encrypts and signs the token as a usable Token string. This may be stored in cache files, cookies, etc.
+
+Treat it as one would an API Key. It may have encrypted contents, but its the token itself that grants access.
+*/
 func (t Token) Encode(s Secrets) (string, error) {
 	serialized, err := t.serialize()
 	if err != nil {

@@ -14,19 +14,14 @@ This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, 
 Quickstart
 -----------
 
-### Generate Signing Key
+#### Generate Signing Key
 
 ```sh
 ssh-keygen -t rsa -f sign.key # create a private RSA key
 ```
 
-### Create Users
 
-```sh
-mkpass # have each user run this, enter a password to get a hash
-```
-
-### Create config file
+#### Create config file
 
 ```sh
 echo "
@@ -34,28 +29,33 @@ pass: some-encryption-password
 salt: abc123-random-salt
 sign-key: sign.key
 auth:
-    password:
-        yourusername: hash-from-mkpass
-        anotheruser: hash-from-mpass
+  password:
 " > uua.yaml
 ```
 
-### Run
+See [Config](#config)
+
+#### Create Users
+
+```sh
+echo "    username: " $(mkpass) >> uua.yaml # change to actual user's name, repeat for other users
+```
+
+See [Set Authentication](#set-authentication)
+
+#### Run
 
 ```sh
 uua -c uua.yaml
 ```
 
 
-### Use
+#### Use
 
 **Get Token**
 
 ```sh
 curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' localhost:6089/api/v1/login
-# result will be either:
-# {"error":"invalid login"}
-# or 
 # {"token":"64vly..."}
 ```
 
@@ -64,15 +64,12 @@ curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' localhost:6089/ap
 
 ```sh
 curl -k -XPOST -d "$TOKEN" localhost:6089/api/v1/verify
-# response: 
-# {
-#   "token":{"v":1,"u":"yourusername","g":1,"a":"","e":1560876042},
-#   "valid":true
-# }
+# {"token":{"v":1,"u":"yourusername","g":1,"a":"","e":1560876042}, "valid":true }
 ```
 
+see [Authenticating Users](#authenticating-users)
 
-### (Recommended) Enable SSL
+#### (Recommended) Enable SSL
 
 **Generate self-signed cert & key**, (if you don't already have these from somewhere else, or are using Let's Encrypt, etc)
 
@@ -95,22 +92,11 @@ And with curl:
 
 ```sh
 curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost:6089/api/v1/login
-# result will be either:
-# {"error":"invalid login"}
-# or 
-# {"token":"64vly..."}
 ```
 
 
-Usage
-------
-
-**Prerequisites**:
-
-- Generate RSA key for signing tokens: `ssh-keygen -t rsa -f signing_rsa`
-- Have or generate `server.crt` and `server.key` for SSL (use `make key` to make quick test certs)
-
----
+Config
+-------
 
 to avoid specifying credentials on the command line, you can use ENV vars, or a config file:
 
@@ -125,12 +111,12 @@ CONFIG_FILE=config.yml uua  # or -c config.yml
 
 The parameters are processed in the following precedence, highest first:
 
-1) Command line arg (e.g. `-s mysalt56`)
-1) Env var (e.g. `SALT=somesalt`)
-1) Config file (via `-c FILEPATH`)  (supported extensions: `json, toml, yaml, yml` for all config files)
-1) Config file (via `$CONFIG_FILE` env)
-1) Config file (via default search paths)
-1) Default values (generation and listen address have defaults)
+1. Command line arg (e.g. `-s mysalt56`)
+1. Env var (e.g. `SALT=somesalt`)
+1. Config file (via `-c FILEPATH`)  (supported extensions: `json, toml, yaml, yml` for all config files)
+1. Config file (via `$CONFIG_FILE` env)
+1. Config file (via default search paths)
+1. Default values (generation and listen address have defaults)
 
 The arguments are:
 
@@ -173,7 +159,7 @@ auth:
 
 `uua -c conf.yaml` will start the server with these parameters. And `user1` and `user2` are the only valid users, identified by their respective passwords (which we don't know)
 
-Authenticating Users
+Set Authentication
 ---------------------
 
 Right now the only authentication method is username:password combo. More methods are planned to be added in the future.
@@ -211,6 +197,57 @@ toml
     alice = "5911c1e671a5c66d2335d2a704b9844ad3376adcca8e2de194e161e5fbf283ee.adae8cdd7ea456dad56483ce3303ce14"
 ```
 
+
+Authenticating Users
+----------------------
+
+The `uua` server exposes two HTTP endpoints:
+
+### Login
+
+**`POST`  `/api/v1/login`**
+
+expected body format: **json**
+
+```js
+{
+    "user": "$USERNAME",
+    "pass": "$PASSWORD",
+    "app": "$APP_NAME", //optional
+    "exp": 1800         //optional, expire time (in seconds)
+}
+```
+Example:
+
+```sh
+curl -k -XPOST \
+    -d '{"user":"bob", "pass":"carrots", "app": "calendar", "exp": 1800}' \
+    https://localhost:6089/api/v1/login
+```
+
+**Responses**:
+
+- Success: `HTTP 200`, `{"token": "64vl...."}`
+- Failure: `HTTP 401`, `{"error":"invalid login"}`
+
+### Verify
+
+**`POST`  `/api/v1/verify`**
+
+expected body: Token text
+
+Example:
+
+```sh
+curl -k -XPOST \
+    -d "64vlykYRouY5seenQ0XGs915WEwaC9UM5bzxitbf5Qb2HGkPTshV6ejErupi6kixNrwOuJjKhy2JivE52t/aWjfw5wHTfPMl6w==.EDYWMTl0i9xvQvoklDlSZfwBG0piSa0j8wmCKIDPtMpLGA1U4+pM68CYnZDFZ5++/ftPi++DOi+6BAEAPj3NlLnmu9c5FxkNbVgo0kzgCcIe5nu+uRVf1KYYI6puFmPvZF+zYpeJ+dq9f1X0PwUQexJFRMAj8qLwXXe2Wp9Dtre3HUkTQYJzHZ1y789JJAcx7RpDqTwEUpd0CqEudlw28BW5k6gME9yS7gtCHrZOqTo91iOFxoA9XFO4JA6HKTuc+KOzQqbTpOsE59gKTa17JBR6WzYR9NEXqpTp+UhpJP303cpv2Y/Z/L2gxAtyoJ5eDkUcQVIR2FaJsPMJbnL9qvVgrtW8rVjEqOHpQNqB4IQbV8XWH9euxmc87TUnIJVjjl4jrF/P8XsnVAYgnhWVfyWizaQU9+U5X5t80drY8T3sVWHZwIbagfr+sTMGzaDHvcLMdn4clExy5FcZG/UE393N/JTlVu8LN8N5xNEM/reDCO8SIufBw7eEUgIKkSeW" \
+    https://localhost:6089/api/v1/verify
+```
+
+**Responses**:
+
+- Success: `HTTP 200`, `{"valid":true, token":{"v":1,"u":"bob","g":1,"a":"calendar","e":1560876042}}`
+- Failure: `HTTP 401`, `{"valid":false}`
 
 The Token
 ----------
