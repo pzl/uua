@@ -113,9 +113,12 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	sslCert := viper.GetString("ssl-cert")
 	json := viper.GetBool("json")
 
+	tokensWillPersist := true
+
 	var p []byte
 	if pass == "" {
-		log.Warn("no token encryption password provided. Generating a random one")
+		tokensWillPersist = false
+		log.Info("no token encryption password provided. Generating a random one")
 		p = make([]byte, 32)
 		_, err := rand.Read(p)
 		must(err)
@@ -125,7 +128,8 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 
 	var s []byte
 	if salt == "" {
-		log.Warn("no encryption salt provided. Generating a random one")
+		tokensWillPersist = false
+		log.Info("no encryption salt provided. Generating a random one")
 		s = make([]byte, 32)
 		_, err := rand.Read(s)
 		must(err)
@@ -133,9 +137,14 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 		s = []byte(salt)
 	}
 	if key == nil {
-		log.Warn("no RSA signing key provided. Generating one")
+		tokensWillPersist = false
+		log.Info("no RSA signing key provided. Generating one")
 		key, err = rsa.GenerateKey(rand.Reader, 256)
 		must(err)
+	}
+
+	if !tokensWillPersist {
+		log.Warn("auto-generated credentials in use. Tokens will not be valid after shutdown")
 	}
 
 	if auths == nil || len(auths) == 0 {
