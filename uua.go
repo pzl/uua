@@ -29,6 +29,7 @@ type Token struct {
 	App        string    `json:"a"`
 }
 
+// used for serialization. Does not need to be called directly
 func (t Token) MarshalJSON() ([]byte, error) {
 	type Alias Token
 	return json.Marshal(struct {
@@ -40,6 +41,7 @@ func (t Token) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// used in deserialization. Does not need to be called directly
 func (t *Token) UnmarshalJSON(data []byte) error {
 	var Alias struct {
 		Version    int    `json:"v"`
