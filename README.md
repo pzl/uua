@@ -1,6 +1,8 @@
 Universal User Auth
 =====================
 
+[![GoDoc](https://godoc.org/github.com/pzl/uua?status.svg)](http://godoc.org/github.com/pzl/uua)
+
 `uua` is a Universal User Auth microservice. 
 
 You provide it with a token request (login): username, secret (password, key, something else). And it responds with an encrypted+signed token. When the service is provided with a token, it validates the token and returns it's content (user, app, etc).
