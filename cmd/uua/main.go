@@ -42,6 +42,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	setArgU("gen", "g", 1, "current token generation. Set to 0 to disable")
 	setArgS("ssl-cert", "t", "", "path to SSL certificate file", "SSL_CERT")
 	setArgS("ssl-key", "y", "", "path to SSL private key", "SSL_KEY")
+	setArgB("json", "j", false, "output logs in JSON formt")
 	// @todo : -w bool flag for watching config for changes? need to propagate to handler
 
 	pflag.Parse()
@@ -105,6 +106,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	addr := viper.GetString("addr")
 	sslKey := viper.GetString("ssl-key")
 	sslCert := viper.GetString("ssl-cert")
+	json := viper.GetBool("json")
 
 	if pass == "" {
 		exit("token encryption password is required")
@@ -123,12 +125,14 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	opts := make([]server.OptFunc, 0, 4)
 	opts = append(opts, func(cfg *server.Cfg) { cfg.Gen = gen })
 	opts = append(opts, func(cfg *server.Cfg) { cfg.Addr = addr })
+	opts = append(opts, func(cfg *server.Cfg) { cfg.JSONLog = json })
 	if sslKey != "" {
 		opts = append(opts, func(cfg *server.Cfg) { cfg.SSLKey = sslKey })
 	}
 	if sslCert != "" {
 		opts = append(opts, func(cfg *server.Cfg) { cfg.SSLCert = sslCert })
 	}
+
 	return uua.Secrets{
 		Pass: []byte(pass),
 		Salt: []byte(salt),
@@ -148,6 +152,12 @@ func setArgU(long string, short string, def uint64, help string, env ...string) 
 	viper.SetDefault(long, def)
 	must(viper.BindEnv(append([]string{long}, env...)...))
 	pflag.Uint64P(long, short, def, help)
+}
+
+func setArgB(long string, short string, def bool, help string, env ...string) {
+	viper.SetDefault(long, def)
+	must(viper.BindEnv(append([]string{long}, env...)...))
+	pflag.BoolP(long, short, def, help)
 }
 
 func getKey(file string, content string) *rsa.PrivateKey {

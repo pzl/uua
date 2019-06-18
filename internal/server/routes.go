@@ -11,9 +11,9 @@ import (
 )
 
 func (s *server) routes() {
-
-	//s.router.Use(middleware.RealIP) // X-Forwarded-For
-	s.router.Use(middleware.Logger)
+	s.router.Use(middleware.RealIP) // X-Forwarded-For
+	s.router.Use(middleware.RequestID)
+	s.router.Use(middleware.RequestLogger(s.l))
 	s.router.Use(middleware.Heartbeat("/ping"))
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(contentJSON)

@@ -2,13 +2,13 @@ package server
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/pzl/uua"
 	"github.com/pzl/uua/internal/auth"
+	"github.com/pzl/uua/internal/logger"
 )
 
 type OptFunc func(*Cfg)
@@ -17,6 +17,7 @@ type server struct {
 	router *chi.Mux
 	srv    *http.Server
 	cfg    *Cfg
+	l      *logger.Logger
 }
 
 type Cfg struct {
@@ -26,6 +27,7 @@ type Cfg struct {
 	TokenSig uua.Secrets
 	SSLCert  string
 	SSLKey   string
+	JSONLog  bool
 }
 
 func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
@@ -36,6 +38,7 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 		TokenSig: secrets,
 		SSLCert:  "server.crt",
 		SSLKey:   "server.key",
+		JSONLog:  false,
 	}
 
 	for _, o := range opts {
@@ -45,6 +48,7 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 	}
 	return &server{
 		cfg: &cfg,
+		l:   logger.New(cfg.JSONLog),
 	}
 }
 
@@ -75,14 +79,14 @@ func (s *server) Start() error {
 		TLSConfig:      sl,
 		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
-	fmt.Printf("listening on %s\n", s.cfg.Addr)
+	s.l.L().Infof("listening on %s", s.cfg.Addr)
 	err := s.srv.ListenAndServeTLS(s.cfg.SSLCert, s.cfg.SSLKey) // blocks
 
 	if err != http.ErrServerClosed {
-		fmt.Printf("Http Server stopped unexpectedly: %v", err)
+		s.l.L().WithError(err).Error("Http Server stopped unexpectedly")
 		s.Shutdown()
 	} else {
-		fmt.Printf("server stopped")
+		s.l.L().Info("server stopped")
 		return nil
 	}
 	return nil
