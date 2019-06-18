@@ -15,9 +15,7 @@ import (
 )
 
 type Handler struct {
-	s     uua.Secrets
-	auths []auth.Method
-	gen   uint64
+	cfg *Cfg
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +28,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// verify credentials here...
 	var u *auth.UInfo
-	for _, a := range h.auths {
+	for _, a := range h.cfg.Auths {
 		ok, uinfo := a.Authenticate(r, bytes.NewReader(body))
 		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -49,8 +47,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// All ok, create and respond with token
-	t := uua.New(u.User, u.App, h.gen, time.Duration(u.Exp)*time.Second)
-	tk, err := t.Encode(h.s)
+	t := uua.New(u.User, u.App, h.cfg.Gen, time.Duration(u.Exp)*time.Second)
+	tk, err := t.Encode(h.cfg.TokenSig)
 	if err != nil {
 		errJS(w, err.Error())
 		return
@@ -66,7 +64,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	ts := r.Context().Value("token").(string)
 
-	token, err := uua.Validate(ts, h.s, h.gen)
+	token, err := uua.Validate(ts, h.cfg.TokenSig, h.cfg.Gen)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "token rejected: %v\n", err)
 		w.WriteHeader(http.StatusUnauthorized)

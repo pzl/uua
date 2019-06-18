@@ -19,15 +19,15 @@ import (
 
 func main() {
 
-	secrets, auths, gen, addr := parseCLI()
+	secrets, auths, opts := parseCLI()
 
-	s := server.New(secrets, auths, gen, addr)
+	s := server.New(secrets, auths, opts...)
 	must(s.Start())
 	// handle signals?
 	defer must(s.Shutdown())
 }
 
-func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
+func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	viper.SetConfigName("uua")
 	viper.AddConfigPath("/srv/apps/uua")
 	viper.AddConfigPath(".")
@@ -39,6 +39,8 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	setArgS("rsa", "r", "", "RSA private key string for signing. Recommended to use a file instead.")
 	setArgS("config", "c", "", "Config file to read values from", "CONFIG_FILE")
 	setArgU("gen", "g", 1, "current token generation. Set to 0 to disable")
+	setArgS("ssl-cert", "t", "", "path to SSL certificate file", "SSL_CERT")
+	setArgS("ssl-key", "y", "", "path to SSL private key", "SSL_KEY")
 	// @todo : -w bool flag for watching config for changes? need to propagate to handler
 
 	pflag.Parse()
@@ -96,6 +98,8 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	key := getKey(viper.GetString("sign-key"), viper.GetString("rsa"))
 	gen := viper.GetUint64("gen")
 	addr := viper.GetString("addr")
+	sslKey := viper.GetString("ssl-key")
+	sslCert := viper.GetString("ssl-cert")
 
 	if pass == "" {
 		exit("token encryption password is required")
@@ -103,21 +107,28 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	if salt == "" {
 		exit("token encryption salt is required")
 	}
-	if addr == "" {
-		exit("server listening address is required")
-	}
 	if key == nil {
 		exit("token RSA signing key is required")
 	}
+
 	if auths == nil || len(auths) == 0 {
 		fmt.Fprintln(os.Stderr, "Warning: no authentication methods configured. Will not be able to login or generate new tokens")
 	}
 
+	opts := make([]server.OptFunc, 0, 4)
+	opts = append(opts, func(cfg *server.Cfg) { cfg.Gen = gen })
+	opts = append(opts, func(cfg *server.Cfg) { cfg.Addr = addr })
+	if sslKey != "" {
+		opts = append(opts, func(cfg *server.Cfg) { cfg.SSLKey = sslKey })
+	}
+	if sslCert != "" {
+		opts = append(opts, func(cfg *server.Cfg) { cfg.SSLCert = sslCert })
+	}
 	return uua.Secrets{
 		Pass: []byte(pass),
 		Salt: []byte(salt),
 		Key:  key,
-	}, auths, gen, addr
+	}, auths, opts
 }
 
 func setArgS(long string, short string, def string, help string, env ...string) {
