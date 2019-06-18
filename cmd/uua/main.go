@@ -113,11 +113,24 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	sslCert := viper.GetString("ssl-cert")
 	json := viper.GetBool("json")
 
+	var p []byte
 	if pass == "" {
-		exit("token encryption password is required")
+		log.Warn("no token encryption password provided. Generating a random one")
+		p = make([]byte, 32)
+		_, err := rand.Read(p)
+		must(err)
+	} else {
+		p = []byte(pass)
 	}
+
+	var s []byte
 	if salt == "" {
-		exit("token encryption salt is required")
+		log.Warn("no encryption salt provided. Generating a random one")
+		s = make([]byte, 32)
+		_, err := rand.Read(s)
+		must(err)
+	} else {
+		s = []byte(salt)
 	}
 	if key == nil {
 		log.Warn("no RSA signing key provided. Generating one")
@@ -141,8 +154,8 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	}
 
 	return uua.Secrets{
-		Pass: []byte(pass),
-		Salt: []byte(salt),
+		Pass: p,
+		Salt: s,
 		Key:  key,
 	}, auths, opts
 }

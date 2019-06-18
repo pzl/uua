@@ -14,23 +14,13 @@ This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, 
 Quickstart
 -----------
 
-#### Create config file
-
-```sh
-echo "
-pass: some-encryption-password
-salt: abc123-random-salt
-auth:
-  password:
-" > uua.yaml
-```
-
-See [Config](#config)
-
 #### Create Users
 
 ```sh
-echo "    username: " $(mkpass) >> uua.yaml # change to actual user's name, repeat for other users
+echo "
+auth:
+  password:" > uua.yaml
+echo "    some-user-name: " $(mkpass) >> uua.yaml # change to actual user's name, repeat for other users
 ```
 
 See [Set Authentication](#set-authentication)
@@ -41,13 +31,12 @@ See [Set Authentication](#set-authentication)
 uua -c uua.yaml
 ```
 
-
 #### Use
 
 **Get Token**
 
 ```sh
-curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' localhost:6089/api/v1/login
+curl -k -XPOST -d '{"user":"some-user-name", "pass":"yourpass"}' localhost:6089/api/v1/login
 # {"token":"64vly..."}
 ```
 
@@ -56,26 +45,34 @@ curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' localhost:6089/ap
 
 ```sh
 curl -k -XPOST -d "$TOKEN" localhost:6089/api/v1/verify
-# {"token":{"v":1,"u":"yourusername","g":1,"a":"","e":1560876042}, "valid":true }
+# {"token":{"v":1,"u":"some-user-name","g":1,"a":"","e":1560876042}, "valid":true }
 ```
 
 see [Authenticating Users](#authenticating-users)
 
+Recommended Configuration
+--------------------------
 
-### (Recommended) Generate signing key
+### Use Static credentials
 
-You can run `uua` without a pre-generated RSA key, but it will generate a new one each time it restarts. This invalidates all previous tokens, as the signature is tied to the RSA key. Using a temporary generated key only allows for tokens valid until the next restart.
+You can run `uua` with auto-generated credentials (RSA key, password+salt), but it will generate new ones each time it restarts. This invalidates all previous tokens, if even one of them is different. Using a temporary generated credential for any of these, only allows for tokens to be valid until the next restart.
 
-For tokens to persist, you need to use a static RSA key.
+This is OK for temporary situations. But for any sort of persistence beyond restarts, or load balancing between multiple `uua` servers, you need static credentials in your config.
 
+**RSA Key**
 ```sh
 ssh-keygen -t rsa -f sign.key # create a private RSA key
 echo "sign-key: sign.key" >> uua.yaml
 ```
 
+**Password & Salt**
 
+```sh
+echo "pass: abc123" >> uua.yaml
+echo "salt: xyz456" >> uua.yaml
+```
 
-#### (Recommended) Enable SSL
+###  Enable SSL
 
 **Generate self-signed cert & key**, (if you don't already have these from somewhere else, or are using Let's Encrypt, etc)
 
