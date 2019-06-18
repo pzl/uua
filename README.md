@@ -285,3 +285,13 @@ Revocation
 - Change the RSA signing key. Changing the signature will may all previous tokens invalid on signature checks. New tokens will validate fine
 - Change the Encryption pass or salt. Either of these will force all previous tokens to fail decryption and therefore be invalid.
 - Increment the `Generation`. By default, tokens are created in generation `1`. By increasing the generation (command line parameter), new tokens will be generation `2` (or whatever you set), and all generations `< 2` will be invalid. If the floor were set to `10`, then all generations 1 through 9 will be invalid. This is an easy way to invalidate tokens without having to change keys.
+
+
+License
+---------
+
+MIT 
+
+Copyright (c) 2019 Dan Panzarella <dan@panzarel.la>
+
+See [LICENSE](LICENSE) for full license
