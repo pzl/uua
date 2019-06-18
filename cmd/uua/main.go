@@ -38,6 +38,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	setArgS("sign-key", "k", "", "RSA private key file path, for signing", "SIGN_KEY")
 	setArgS("rsa", "r", "", "RSA private key string for signing. Recommended to use a file instead.")
 	setArgS("config", "c", "", "Config file to read values from", "CONFIG_FILE")
+	setArgS("conf-dir", "d", "", "Search this directory for config files", "CONF_DIR")
 	setArgU("gen", "g", 1, "current token generation. Set to 0 to disable")
 	setArgS("ssl-cert", "t", "", "path to SSL certificate file", "SSL_CERT")
 	setArgS("ssl-key", "y", "", "path to SSL private key", "SSL_KEY")
@@ -45,6 +46,10 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 
 	pflag.Parse()
 	must(viper.BindPFlags(pflag.CommandLine))
+
+	if cdir := viper.GetString("conf-dir"); cdir != "" {
+		viper.AddConfigPath(cdir)
+	}
 
 	// parse config file if found
 	explicitConf := false
