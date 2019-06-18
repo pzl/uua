@@ -21,14 +21,14 @@ Usage
 **Simple Use**:
 
 ```sh
-uua -p somepass -s mysalt -f private_rsa
+uua -p somepass -s mysalt -k private_rsa
 ```
 
 to avoid specifying credentials on the command line, you can use ENV vars, or a config file:
 
 ```sh
 echo "
-file: private_rsa
+sign-key: private_rsa
 pass: encpass
 salt: x3*h9dw0e
 " > config.yml # create a config file
@@ -47,17 +47,17 @@ The parameters are processed in the following precedence, highest first:
 The arguments are:
 
 ```
-  -p, --pass string   symmetric encryption password               ENV: PASS
-  -s, --salt string   symmetric encryption salt                   ENV: SALT
-  -r, --rsa string    RSA private key string for signing. Recommended to use a file instead.  ENV: RSA
-  -f, --file string   RSA private key file path, for signing      ENV: RSA_FILE
-  -a, --addr string   Server listening Address (default ":6089")  ENV: ADDR
-  -g, --gen uint      current token generation. Set to 0 to disable (default 1) ENV: GEN
-  -c, --conf string   Config file to read values from             ENV: CONFIG_FILE
+  -p, --pass     string   symmetric encryption password               ENV: PASS
+  -s, --salt     string   symmetric encryption salt                   ENV: SALT
+  -r, --rsa     string    RSA private key string for signing. Recommended to use a file instead.  ENV: RSA
+  -k, --sign-key string   RSA private key file path, for signing      ENV: SIGN_KEY
+  -a, --addr     string   Server listening Address (default ":6089")  ENV: ADDR
+  -g, --gen     uint      current token generation. Set to 0 to disable (default 1) ENV: GEN
+  -c, --conf     string   Config file to read values from             ENV: CONFIG_FILE
 ```
 
 
-The required parameters (via any method above) are: **pass**, **salt**, and an RSA key, _either_ through **rsa** or **file**. 
+The required parameters (via any method above) are: **pass**, **salt**, and an RSA key, _either_ through **rsa** or **sign-key**. 
 
 The key names for these properties match their `--long` flag names. I.e. `--pass` will be `pass: x`
 
@@ -66,7 +66,7 @@ Example full config file:
 ```yaml
 pass: y0urT0kenEncr7ptn
 salt: aRandomSaltValue
-file: /path/to/your/signing/rsa.key
+sign-key: /path/to/your/signing/rsa.key
 addr: :443
 gen: 6
 auth:

@@ -35,7 +35,7 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 	setArgS("addr", "a", ":6089", "Server listening Address")
 	setArgS("pass", "p", "", "symmetric encryption password")
 	setArgS("salt", "s", "", "symmetric encryption salt")
-	setArgS("file", "f", "", "RSA private key file path, for signing", "RSA_FILE")
+	setArgS("sign-key", "k", "", "RSA private key file path, for signing", "SIGN_KEY")
 	setArgS("rsa", "r", "", "RSA private key string for signing. Recommended to use a file instead.")
 	setArgS("config", "c", "", "Config file to read values from", "CONFIG_FILE")
 	setArgU("gen", "g", 1, "current token generation. Set to 0 to disable")
@@ -93,7 +93,7 @@ func parseCLI() (uua.Secrets, []auth.Method, uint64, string) {
 
 	pass := viper.GetString("pass")
 	salt := viper.GetString("salt")
-	key := getKey(viper.GetString("file"), viper.GetString("rsa"))
+	key := getKey(viper.GetString("sign-key"), viper.GetString("rsa"))
 	gen := viper.GetUint64("gen")
 	addr := viper.GetString("addr")
 
