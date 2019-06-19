@@ -8,12 +8,13 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/pzl/uua/internal/logger"
 )
 
 func (s *server) routes() {
 	s.router.Use(middleware.RealIP) // X-Forwarded-For
 	s.router.Use(middleware.RequestID)
-	s.router.Use(middleware.RequestLogger(s.l))
+	s.router.Use(middleware.RequestLogger(logger.NewChi(s.l)))
 	s.router.Use(middleware.Heartbeat("/ping"))
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(contentJSON)

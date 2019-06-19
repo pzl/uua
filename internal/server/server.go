@@ -9,6 +9,7 @@ import (
 	"github.com/pzl/uua"
 	"github.com/pzl/uua/internal/auth"
 	"github.com/pzl/uua/internal/logger"
+	"github.com/sirupsen/logrus"
 )
 
 type OptFunc func(*Cfg)
@@ -17,7 +18,7 @@ type server struct {
 	router *chi.Mux
 	srv    *http.Server
 	cfg    *Cfg
-	l      *logger.Logger
+	l      *logrus.Logger
 }
 
 type Cfg struct {
@@ -28,6 +29,7 @@ type Cfg struct {
 	SSLCert  string
 	SSLKey   string
 	JSONLog  bool
+	Log      *logrus.Logger
 }
 
 func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
@@ -46,9 +48,13 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 			o(&cfg)
 		}
 	}
+
+	if cfg.Log == nil {
+		logger.New(cfg.JSONLog)
+	}
 	return &server{
 		cfg: &cfg,
-		l:   logger.New(cfg.JSONLog),
+		l:   cfg.Log,
 	}
 }
 
@@ -80,19 +86,19 @@ func (s *server) Start() (err error) {
 	if s.cfg.SSLCert != "" && s.cfg.SSLKey != "" {
 		s.srv.TLSConfig = sl
 		s.srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
-		s.l.L().Infof("listening on %s", s.cfg.Addr)
+		s.l.Infof("listening on %s", s.cfg.Addr)
 		err = s.srv.ListenAndServeTLS(s.cfg.SSLCert, s.cfg.SSLKey)
 	} else {
-		s.l.L().Warn("SSL disabled. Sending credentials over HTTP is not recommended")
-		s.l.L().Infof("listening on %s", s.cfg.Addr)
+		s.l.Warn("SSL disabled. Sending credentials over HTTP is not recommended")
+		s.l.Infof("listening on %s", s.cfg.Addr)
 		err = s.srv.ListenAndServe()
 	}
 
 	if err != http.ErrServerClosed {
-		s.l.L().WithError(err).Error("Http Server stopped unexpectedly")
+		s.l.WithError(err).Error("Http Server stopped unexpectedly")
 		s.Shutdown()
 	} else {
-		s.l.L().Info("server stopped")
+		s.l.Info("server stopped")
 		return nil
 	}
 	return nil

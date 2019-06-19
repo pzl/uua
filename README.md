@@ -126,13 +126,13 @@ The arguments are:
   -s, --salt     string   symmetric encryption salt                   ENV: SALT
   -r, --rsa      string   RSA private key string for signing. Recommended to use a file instead.  ENV: RSA
   -k, --sign-key string   RSA private key file path, for signing      ENV: SIGN_KEY
-  -y, --ssl-key  string   path to SSL private key
-  -t, --ssl-cert string   path to SSL certificate file
+  -y, --ssl-key  string   path to SSL private key                     ENV: SSL_KEY
+  -t, --ssl-cert string   path to SSL certificate file                ENV: SSL_CERT
   -a, --addr     string   Server listening Address (default ":6089")  ENV: ADDR
   -g, --gen      uint     current token generation. Set to 0 to disable (default 1) ENV: GEN
-  -j, --json              output logs in JSON formt
-  -c, --config   string   Config file to read values from             ENV: CONFIG_FILE
-  -d, --conf-dir string   Search this directory for config files
+  -j, --json              output logs in JSON formt                   ENV: JSON
+  -c, --config   string   Config file to read values from             ENV: CONFIG
+  -d, --conf-dir string   Search this directory for config files      ENV: CONF_DIR
 ```
 
 

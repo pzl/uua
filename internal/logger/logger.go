@@ -17,25 +17,56 @@ func (u UTCFormatter) Format(e *logrus.Entry) ([]byte, error) {
 	return u.Formatter.Format(e)
 }
 
-type Logger struct{ l *logrus.Logger }
+type BufferedFormatter struct {
+	q []*logrus.Entry
+}
 
-func New(json bool) *Logger {
-	log := logrus.New()
-	if json {
+func (b BufferedFormatter) Format(e *logrus.Entry) ([]byte, error) {
+	if b.q == nil {
+		b.q = make([]*logrus.Entry, 0, 30)
+	}
+	b.q = append(b.q, e)
+	return nil, nil
+}
+
+func SetFormat(log *logrus.Logger, useJSON bool) {
+	if useJSON {
 		log.Formatter = UTCFormatter{&logrus.JSONFormatter{
 			TimestampFormat: time.RFC1123,
 		}}
+	} else {
+		log.Formatter = UTCFormatter{&logrus.TextFormatter{
+			TimestampFormat:  time.RFC1123,
+			QuoteEmptyFields: true,
+		}}
 	}
-	return &Logger{log}
 }
 
-func (sl *Logger) NewLogEntry(r *http.Request) middleware.LogEntry {
+func NewBuffered() *logrus.Logger {
+	log := logrus.New()
+	log.Formatter = BufferedFormatter{}
+	return log
+}
+
+func New(json bool) *logrus.Logger {
+	log := logrus.New()
+	SetFormat(log, json)
+	return log
+}
+
+type ChiLogger struct{ l *logrus.Logger }
+
+func NewChi(log *logrus.Logger) *ChiLogger {
+	return &ChiLogger{log}
+}
+
+func (cl *ChiLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme += "s"
 	}
 
-	entry := &LogEntry{logrus.NewEntry(sl.l)}
+	entry := &ChiLogEntry{logrus.NewEntry(cl.l)}
 	pf := logrus.Fields{
 		"remote_addr": r.RemoteAddr,
 		"user_agent":  r.UserAgent(),
@@ -56,23 +87,23 @@ func (sl *Logger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	return entry
 }
 
-func (sl *Logger) L() *logrus.Logger { return sl.l }
+func (cl *ChiLogger) L() *logrus.Logger { return cl.l }
 
-type LogEntry struct {
+type ChiLogEntry struct {
 	l logrus.FieldLogger
 }
 
-func (le *LogEntry) Write(status int, bytes int, elapsed time.Duration) {
-	le.l = le.l.WithFields(logrus.Fields{
+func (cle *ChiLogEntry) Write(status int, bytes int, elapsed time.Duration) {
+	cle.l = cle.l.WithFields(logrus.Fields{
 		"resp_status":     status,
 		"resp_bytes_len":  bytes,
 		"resp_elapsed_ms": float64(elapsed.Nanoseconds()) / 1000000.0,
 	})
-	le.l.Infoln("request complete")
+	cle.l.Infoln("request complete")
 }
 
-func (le *LogEntry) Panic(v interface{}, stack []byte) {
-	le.l = le.l.WithFields(logrus.Fields{
+func (cle *ChiLogEntry) Panic(v interface{}, stack []byte) {
+	cle.l = cle.l.WithFields(logrus.Fields{
 		"stack": string(stack),
 		"panic": fmt.Sprintf("%+v", v),
 	})
@@ -81,12 +112,12 @@ func (le *LogEntry) Panic(v interface{}, stack []byte) {
 /* --- handler log -setter helper -----*/
 
 func GetLog(r *http.Request) logrus.FieldLogger {
-	entry := middleware.GetLogEntry(r).(*LogEntry)
+	entry := middleware.GetLogEntry(r).(*ChiLogEntry)
 	return entry.l
 }
 
 func Log(r *http.Request, key string, value interface{}) {
-	if entry, ok := r.Context().Value(middleware.LogEntryCtxKey).(*LogEntry); ok {
+	if entry, ok := r.Context().Value(middleware.LogEntryCtxKey).(*ChiLogEntry); ok {
 		entry.l = entry.l.WithField(key, value)
 	}
 }
