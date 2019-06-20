@@ -39,19 +39,6 @@ func main() {
 }
 
 func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
-	log := logger.NewBuffered()
-	log.SetLevel(logrus.TraceLevel)
-
-	k := koanf.New(".")
-	searchDir(log, k, "/etc/uua/")
-	searchDir(log, k, "/srv/apps/uua")
-	// @todo XDG_CONFIG_HOME:-$HOME/.config/
-	// XDG_CONFIG_DIRS:-/etc/xdg/
-	searchDir(log, k, ".")
-	if cdir := os.Getenv("CONFIG_DIR"); cdir != "" {
-		searchDir(log, k, cdir) //search $CONFIG_DIR if passed in env
-	}
-
 	pflag.StringP("addr", "a", ":6089", "Server listening Address")
 	pflag.StringP("pass", "p", "", "symmetric encryption password")
 	pflag.StringP("salt", "s", "", "symmetric encryption salt")
@@ -63,10 +50,32 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	pflag.StringP("ssl-cert", "t", "", "path to SSL certificate file")
 	pflag.StringP("ssl-key", "y", "", "path to SSL private key")
 	pflag.BoolP("json", "j", false, "output logs in JSON formt")
+	v := pflag.CountP("verbose", "v", "turn on verbose output. Can use multiple times")
 	// @todo : -w bool flag for watching config for changes? need to propagate to handler
 
 	pflag.Parse()
 
+	log := logger.NewBuffered()
+	switch *v {
+	case 3:
+		log.SetLevel(logrus.TraceLevel)
+	case 2:
+		log.SetLevel(logrus.DebugLevel)
+	case 1:
+		log.SetLevel(logrus.InfoLevel)
+	default:
+		log.SetLevel(logrus.WarnLevel)
+	}
+
+	k := koanf.New(".")
+	searchDir(log, k, "/etc/uua/")
+	searchDir(log, k, "/srv/apps/uua")
+	// @todo XDG_CONFIG_HOME:-$HOME/.config/
+	// XDG_CONFIG_DIRS:-/etc/xdg/
+	searchDir(log, k, ".")
+	if cdir := os.Getenv("CONFIG_DIR"); cdir != "" {
+		searchDir(log, k, cdir) //search $CONFIG_DIR if passed in env
+	}
 	if cdir != nil && *cdir != "" {
 		searchDir(log, k, *cdir) // load --conf-dir  if passed as a flag
 	}
@@ -226,6 +235,7 @@ func searchDir(log *logrus.Logger, k *koanf.Koanf, dir string) {
 				l.WithError(err).Error("unable to determine parser for file")
 				return err
 			}
+			log.WithField("file", path).Debug("Loading config file")
 			return k.Load(file.Provider(path), parser)
 		}
 		l.Trace("did not have the correct extension")
