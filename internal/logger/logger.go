@@ -21,7 +21,7 @@ type BufferedFormatter struct {
 	q []*logrus.Entry
 }
 
-func (b BufferedFormatter) Format(e *logrus.Entry) ([]byte, error) {
+func (b *BufferedFormatter) Format(e *logrus.Entry) ([]byte, error) {
 	if b.q == nil {
 		b.q = make([]*logrus.Entry, 0, 30)
 	}
@@ -30,6 +30,10 @@ func (b BufferedFormatter) Format(e *logrus.Entry) ([]byte, error) {
 }
 
 func SetFormat(log *logrus.Logger, useJSON bool) {
+	var q []*logrus.Entry
+	if f, ok := log.Formatter.(*BufferedFormatter); ok {
+		q = f.q
+	}
 	if useJSON {
 		log.Formatter = UTCFormatter{&logrus.JSONFormatter{
 			TimestampFormat: time.RFC1123,
@@ -40,11 +44,19 @@ func SetFormat(log *logrus.Logger, useJSON bool) {
 			QuoteEmptyFields: true,
 		}}
 	}
+	for _, e := range q {
+		// process the entry
+		ftd, err := log.Formatter.Format(e)
+		if err != nil {
+			continue // do we really want to log.. an error logging?
+		}
+		fmt.Fprint(log.Out, string(ftd))
+	}
 }
 
 func NewBuffered() *logrus.Logger {
 	log := logrus.New()
-	log.Formatter = BufferedFormatter{}
+	log.Formatter = &BufferedFormatter{}
 	return log
 }
 
