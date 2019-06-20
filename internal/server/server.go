@@ -62,6 +62,12 @@ func (s *server) Start() (err error) {
 	s.router = chi.NewRouter()
 	s.routes()
 
+	s.l.WithFields(logrus.Fields{
+		"Gen":  s.cfg.Gen,
+		"Addr": s.cfg.Addr,
+		"SSL":  s.cfg.SSLCert != "" && s.cfg.SSLKey != "",
+	}).Debug("Starting UUA Server")
+
 	// https://gist.github.com/denji/12b3a568f092ab951456#perfect-ssl-labs-score-with-go
 	sl := &tls.Config{
 		MinVersion:               tls.VersionTLS12,
