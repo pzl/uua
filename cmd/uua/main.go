@@ -43,13 +43,13 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	log.SetLevel(logrus.TraceLevel)
 
 	k := koanf.New(".")
-	searchDir(k, "/etc/uua/")
-	searchDir(k, "/srv/apps/uua")
+	searchDir(log, k, "/etc/uua/")
+	searchDir(log, k, "/srv/apps/uua")
 	// @todo XDG_CONFIG_HOME:-$HOME/.config/
 	// XDG_CONFIG_DIRS:-/etc/xdg/
-	searchDir(k, ".")
+	searchDir(log, k, ".")
 	if cdir := os.Getenv("CONFIG_DIR"); cdir != "" {
-		searchDir(k, cdir) //search $CONFIG_DIR if passed in env
+		searchDir(log, k, cdir) //search $CONFIG_DIR if passed in env
 	}
 
 	pflag.StringP("addr", "a", ":6089", "Server listening Address")
@@ -68,7 +68,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	pflag.Parse()
 
 	if cdir != nil && *cdir != "" {
-		searchDir(k, *cdir) // load --conf-dir  if passed as a flag
+		searchDir(log, k, *cdir) // load --conf-dir  if passed as a flag
 	}
 	if cfile != nil && *cfile != "" {
 		// load explicit config file if passed as -c
@@ -170,9 +170,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	}, auths, opts
 }
 
-func searchDir(k *koanf.Koanf, dir string) {
-	//@todo: temporary
-	log := logger.New(false)
+func searchDir(log *logrus.Logger, k *koanf.Koanf, dir string) {
 	exts := map[string]struct{}{
 		".js":   struct{}{},
 		".json": struct{}{},
