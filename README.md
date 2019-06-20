@@ -9,7 +9,7 @@ You provide it with a token request (login): username, secret (password, key, so
 
 This is basically a [JWT](https://jwt.io/), or JWE flavor since it's encrypted, without the header. 
 
-
+For using `uua` as a library, and not a microservice, see [As a Library](#as-a-library)
 
 Quickstart
 -----------
@@ -22,6 +22,8 @@ auth:
   password:" > uua.yaml
 echo "    some-user-name: " $(mkpass) >> uua.yaml # change to actual user's name, repeat for other users
 ```
+
+(`mkpass` is a utility that comes with `uua`. It generates argon2-hashed passwords with a random salt.)
 
 See [Set Authentication](#set-authentication)
 
@@ -44,11 +46,16 @@ curl -k -XPOST -d '{"user":"some-user-name", "pass":"yourpass"}' localhost:6089/
 **Auth with Token**
 
 ```sh
-curl -k -XPOST -d "$TOKEN" localhost:6089/api/v1/verify
+curl -k -XPOST -d "64vly..." localhost:6089/api/v1/verify
 # {"token":{"v":1,"u":"some-user-name","g":1,"a":"","e":1560876042}, "valid":true }
 ```
 
 see [Authenticating Users](#authenticating-users)
+
+
+
+For the less-quick start, see [Integrating with Other Apps](#integrating-with-other-apps).
+
 
 Recommended Configuration
 --------------------------
@@ -95,6 +102,127 @@ Then you can continue to run as normal: `uua -c uua.yaml`. and POST with:
 curl -k -XPOST -d '{"user":"yourusername", "pass":"yourpass"}' https://localhost:6089/api/v1/login
 ```
 
+
+Integrating with Other Apps
+---------------------------
+
+Because you probably want something to authenticate _to_. There are two methods of using UUA:
+
+- [As an HTTP Microservice](#as-a-service)
+- [As a Go Library](#as-a-library)
+
+### As a Service
+
+You can use UUA as an authentication microservice for your apps or microservices. 
+
+1. Have your app prompt the user for username + password (until other auth methods are supported)
+1. Your app will POST the credentials to `UUA:/api/v1/login`. `HTTP 401` on bad credentials, and a token otherwise
+1. Associate and save the token with the user (somewhere safe, this token grants access as the user)
+1. On next use, search that same place for a token
+    + If no token, go back to step 1
+    + POST to `UUA:/api/v1/verify` with the token as the body
+    + if `401`, go back to step 1. Otherwise, you will receive username + some metadata. You can proceed as `user`
+
+For more details on the HTTP endpoints see [Authenticating Users](#authenticating-users)
+
+
+### As a Library
+
+UUA provides an HTTP server, but it is not required. You may import and use `uua` as a golang library. Performing authentication is up to your app. the `uua` library's purpose is to:
+
+- Create and serialize tokens
+- Verify that a serialized token string is authentic, and valid
+
+So your app must implement whatever authentication steps are required before granting a token to a user (user/pass, iris scan, device, etc).
+
+**Creating a token**
+
+```go
+import "time"
+import "github.com/pzl/uua"
+
+const MY_APP = "demo"
+const GENERATION = 1
+const EXPIRATION = 3 * time.Hour
+
+func main() {
+
+    // secret material required to create tokens:
+    // *rsa.PrivateKey (signing)
+    // password + salt (symmetric encrypt token)
+    key := loadPrivateKey() // *rsa.PrivateKey
+    pass, salt := loadServerEnc()
+
+    sec := uua.Secrets{
+        Key:  key,
+        Pass: pass,
+        Salt: salt,
+    }
+
+    for {
+        r := getRequest() // whatever user request or login your app has
+
+        // validate credentials. This is up to your app to do. Check an email+pass perhaps
+        if ! validCredentials(r) {
+            respond(r, false, "bad credentials")
+            continue
+        }
+
+        // create a token and serialize, encrypt, & sign it
+        t, err := uua.New(r.Username, MY_APP, GENERATION, EXPIRATION).Encode(sec)
+        if err != nil { //handle, log, whatever
+            continue
+        }
+
+        respond(r, true, t) // send token string to the user, for storage
+    }
+}
+```
+
+**Validating a Token**
+
+```go
+package main
+
+import "fmt"
+import "github.com/pzl/uua"
+
+const MY_APP = "demo"
+const GENERATION = 1 // tokens must be of the same generation to be valid. Increment to revoke
+// see Revocation at the bottom of the Readme for more info
+
+func main() {
+    // same secrets as above
+    sec := uua.Secrets{
+        Pass: pass,
+        Salt: salt,
+        Key:  key,
+    }
+
+    // with a user action, receive or read token string from somewhere
+    ts := getTokenFromRequest() 
+
+    token, err := uua.Validate(ts, sec, GENERATION)
+    if err != nil { // invalid token (time expired, invalid signature, old generation)
+        valid(false, err.Error())
+        return
+    }
+
+    // valid `token` object. Can check token.App if desired to route a user someplace
+    // or to make sure tokens used for some microservices are restricted to only those
+
+    // optional
+    if token.App != MY_APP {
+        valid(false, fmt.Sprintf("tokens from %s are not valid at %s", token.App, MY_APP))
+        return
+    }
+
+    valid(true, token.User) // allow access as this user
+}
+
+```
+
+See [godoc](http://godoc.org/github.com/pzl/uua) for more
 
 Config
 -------
@@ -283,9 +411,9 @@ Revocation
 
 `uua` tokens can be revoked in any of the following ways. It is not currently possible to revoke a few, or single tokens. You may only revoke all current tokens
 
-- Change the RSA signing key. Changing the signature will may all previous tokens invalid on signature checks. New tokens will validate fine
+- Change the RSA signing key. Changing the signature will make all previous tokens invalid on signature checks. New tokens will validate fine
 - Change the Encryption pass or salt. Either of these will force all previous tokens to fail decryption and therefore be invalid.
-- Increment the `Generation`. By default, tokens are created in generation `1`. By increasing the generation (command line parameter), new tokens will be generation `2` (or whatever you set), and all generations `< 2` will be invalid. If the floor were set to `10`, then all generations 1 through 9 will be invalid. This is an easy way to invalidate tokens without having to change keys.
+- Increment the `Generation`. By default, tokens are created in generation `1`. By increasing the generation, new tokens will be generation `2` (or whatever you set), and all other generations `< 2` will be invalid. This is an easy way to invalidate tokens without having to change keys. If the floor were set to `10`, then all generations 1 through 9 will be invalid. "Future" generations will be valid. So `11+` will validate with a current Gen of `10`. This allows for perhaps selectively revoking tiers of tokens.   
 
 
 License
