@@ -29,7 +29,17 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type Configurator struct {
+	log *logrus.Logger
+	k   *koanf.Koanf
+}
+
 func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
+	c := Configurator{
+		log: logger.NewBuffered(),
+		k:   koanf.New("."),
+	}
+
 	pflag.StringP("addr", "a", ":6089", "Server listening Address")
 	pflag.StringP("pass", "p", "", "symmetric encryption password")
 	pflag.StringP("salt", "s", "", "symmetric encryption salt")
@@ -46,44 +56,40 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 
 	pflag.Parse()
 
-	log := logger.NewBuffered()
 	switch *v {
 	case 3:
-		log.SetLevel(logrus.TraceLevel)
+		c.log.SetLevel(logrus.TraceLevel)
 	case 2:
-		log.SetLevel(logrus.DebugLevel)
+		c.log.SetLevel(logrus.DebugLevel)
 	case 1:
-		log.SetLevel(logrus.InfoLevel)
+		c.log.SetLevel(logrus.InfoLevel)
 	default:
-		log.SetLevel(logrus.WarnLevel)
+		c.log.SetLevel(logrus.WarnLevel)
 	}
 
-	k := koanf.New(".")
-	searchDir(log, k, "/etc/uua/")
-	searchDir(log, k, "/srv/apps/uua")
-	// @todo XDG_CONFIG_HOME:-$HOME/.config/
-	// XDG_CONFIG_DIRS:-/etc/xdg/
-	searchDir(log, k, ".")
+	c.searchDir("/etc/uua/")
+	c.searchDir(c.XDGConfigHome())
+	c.searchDir(".")
 	if cdir := os.Getenv("CONFIG_DIR"); cdir != "" {
-		searchDir(log, k, cdir) //search $CONFIG_DIR if passed in env
+		c.searchDir(cdir) //search $CONFIG_DIR if passed in env
 	}
 	if cdir != nil && *cdir != "" {
-		searchDir(log, k, *cdir) // load --conf-dir  if passed as a flag
+		c.searchDir(*cdir) // load --conf-dir  if passed as a flag
 	}
 	if cfile != nil && *cfile != "" {
 		// load explicit config file if passed as -c
 		parser, err := determineParser(*cfile)
 		must(err)
-		must(k.Load(file.Provider(*cfile), parser))
+		must(c.k.Load(file.Provider(*cfile), parser))
 	}
 
 	// load environments next
-	must(k.Load(env.Provider("", ".", func(key string) string {
+	must(c.k.Load(env.Provider("", ".", func(key string) string {
 		return strings.Replace(strings.ToLower(key), "_", "-", 0)
 	}), nil))
 
 	// load CLI flags last
-	must(k.Load(posflag.Provider(pflag.CommandLine, "."), nil))
+	must(c.k.Load(posflag.Provider(pflag.CommandLine, "."), nil))
 
 	// get configs
 	var cfg struct {
@@ -100,8 +106,8 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 			Password map[string]string
 		}
 	}
-	must(k.Unmarshal("", &cfg))
-	logger.SetFormat(log, cfg.JSON)
+	must(c.k.Unmarshal("", &cfg))
+	logger.SetFormat(c.log, cfg.JSON)
 
 	// parse auth methods
 	passwds := make(map[string]auth.Password, len(cfg.Auth.Password))
@@ -119,43 +125,33 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 
 	key := getKey(cfg.SignKey, cfg.KeyMaterial)
 
+	var generated bool
 	tokensWillPersist := true
-	if cfg.Pass == nil || len(cfg.Pass) == 0 {
-		tokensWillPersist = false
-		log.Info("no token encryption password provided. Generating a random one")
-		cfg.Pass = make([]byte, 32)
-		_, err := rand.Read(cfg.Pass)
-		must(err)
-	}
-	if cfg.Salt == nil || len(cfg.Salt) == 0 {
-		tokensWillPersist = false
-		log.Info("no encryption salt provided. Generating a random one")
-		cfg.Salt = make([]byte, 32)
-		_, err := rand.Read(cfg.Salt)
-		must(err)
-	}
+	cfg.Pass, generated = c.genIfNotExists(cfg.Pass, "token encryption password")
+	tokensWillPersist = tokensWillPersist && !generated
+	cfg.Salt, generated = c.genIfNotExists(cfg.Salt, "encryption salt")
+	tokensWillPersist = tokensWillPersist && !generated
 
 	if key == nil {
 		var err error
 		tokensWillPersist = false
-		log.Info("no RSA signing key provided. Generating one")
+		c.log.Info("no RSA signing key provided. Generating one")
 		key, err = rsa.GenerateKey(rand.Reader, 256)
 		must(err)
 	}
 
 	if !tokensWillPersist {
-		log.Warn("auto-generated credentials in use. Tokens will not be valid after shutdown")
+		c.log.Warn("auto-generated credentials in use. Tokens will not be valid after shutdown")
 	}
-
 	if auths == nil || len(auths) == 0 {
-		log.Warn("Warning: no authentication methods configured. Will not be able to login or generate new tokens")
+		c.log.Warn("Warning: no authentication methods configured. Will not be able to login or generate new tokens")
 	}
 
 	opts := make([]server.OptFunc, 0, 4)
 	opts = append(opts, func(sc *server.Cfg) { sc.Gen = cfg.Gen })
 	opts = append(opts, func(sc *server.Cfg) { sc.Addr = cfg.Addr })
 	opts = append(opts, func(sc *server.Cfg) { sc.JSONLog = cfg.JSON })
-	opts = append(opts, func(sc *server.Cfg) { sc.Log = log })
+	opts = append(opts, func(sc *server.Cfg) { sc.Log = c.log })
 	if cfg.SSLKey != "" {
 		opts = append(opts, func(sc *server.Cfg) { sc.SSLKey = cfg.SSLKey })
 	}
@@ -170,7 +166,18 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 	}, auths, opts
 }
 
-func searchDir(log *logrus.Logger, k *koanf.Koanf, dir string) {
+func (c *Configurator) genIfNotExists(data []byte, name string) ([]byte, bool) {
+	if data != nil && len(data) < 0 {
+		return data, false
+	}
+	c.log.Infof("no %s provided. Generating a random one", name)
+	data = make([]byte, 32)
+	_, err := rand.Read(data)
+	must(err)
+	return data, true
+}
+
+func (c *Configurator) searchDir(dir string) {
 	exts := map[string]struct{}{
 		".js":   struct{}{},
 		".json": struct{}{},
@@ -186,12 +193,12 @@ func searchDir(log *logrus.Logger, k *koanf.Koanf, dir string) {
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error { //nolint
 		if err != nil {
 			if !os.IsNotExist(err) {
-				log.WithError(err).Error("unable to search config dir")
+				c.log.WithError(err).Error("unable to search config dir")
 			}
 			return err
 		}
 
-		l := log.WithFields(logrus.Fields{
+		l := c.log.WithFields(logrus.Fields{
 			"path":  path,
 			"name":  info.Name(),
 			"isdir": info.IsDir(),
@@ -226,8 +233,8 @@ func searchDir(log *logrus.Logger, k *koanf.Koanf, dir string) {
 				l.WithError(err).Error("unable to determine parser for file")
 				return err
 			}
-			log.WithField("file", path).Debug("Loading config file")
-			return k.Load(file.Provider(path), parser)
+			c.log.WithField("file", path).Debug("Loading config file")
+			return c.k.Load(file.Provider(path), parser)
 		}
 		l.Trace("did not have the correct extension")
 		return nil
@@ -235,29 +242,17 @@ func searchDir(log *logrus.Logger, k *koanf.Koanf, dir string) {
 }
 
 func determineParser(filename string) (koanf.Parser, error) {
-	j := json.Parser()
-	t := toml.Parser()
-	y := yaml.Parser()
-
-	exts := map[string]koanf.Parser{
-		".js":   j,
-		".json": j,
-		".toml": t,
-		".tml":  t,
-		".yaml": y,
-		".yml":  y,
-		".conf": t, // process confs as inis... and inis as tomls
-		".cnf":  t,
-		".ini":  t,
-	}
-
 	ext := filepath.Ext(filename)
-	if p, ok := exts[ext]; ok {
-		return p, nil
+	switch ext {
+	case ".js", ".json":
+		return json.Parser(), nil
+	case ".toml", ".tml", ".conf", ".cnf", ".ini":
+		return toml.Parser(), nil
+	case ".yaml", ".yml":
+		return yaml.Parser(), nil
 	}
 
 	// attempt to determine from file contents
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -265,24 +260,22 @@ func determineParser(filename string) (koanf.Parser, error) {
 	defer f.Close()
 
 	buf := make([]byte, 50)
-	_, err = io.ReadFull(f, buf)
-	if err != nil {
+	if _, err := io.ReadFull(f, buf); err != nil {
 		return nil, err
 	}
 
 	buf = bytes.TrimSpace(buf)
 	// best guesses by syntax
-	if buf[0] == '{' {
-		return j, nil
-	}
-	if buf[0] == '[' {
-		return t, nil
+	switch buf[0] {
+	case '{':
+		return json.Parser(), nil
+	case '[':
+		return toml.Parser(), nil
 	}
 
 	// looks like a yaml list somewhere in the file
-	yamlList := regexp.MustCompile(`(?im)^\s*- \w+`)
-	if yamlList.Match(buf) {
-		return y, nil
+	if yamlList := regexp.MustCompile(`(?im)^\s*- \w+`); yamlList.Match(buf) {
+		return yaml.Parser(), nil
 	}
 
 	// look at  key: value  vs key =
@@ -290,9 +283,9 @@ func determineParser(filename string) (koanf.Parser, error) {
 	if match := eql.FindSubmatch(buf); match != nil {
 		switch match[1][0] {
 		case ':':
-			return y, nil
+			return yaml.Parser(), nil
 		case '=':
-			return t, nil
+			return toml.Parser(), nil
 		}
 	}
 
@@ -335,4 +328,14 @@ func parseHashString(s string) (hash []byte, salt []byte) {
 	salt, err = hex.DecodeString(spl[1])
 	must(err)
 	return hash, salt
+}
+
+func (c *Configurator) XDGConfigHome() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "uua")
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		return filepath.Join(home, ".config", "uua")
+	}
+	return "/etc/xdg/uua"
 }
