@@ -167,7 +167,7 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 }
 
 func (c *Configurator) genIfNotExists(data []byte, name string) ([]byte, bool) {
-	if data != nil && len(data) < 0 {
+	if data != nil && len(data) > 0 {
 		return data, false
 	}
 	c.log.Infof("no %s provided. Generating a random one", name)
