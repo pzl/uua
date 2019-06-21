@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/pzl/uua/internal/server"
@@ -18,7 +19,7 @@ func main() {
 	defer cancel()
 	go func() {
 		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt, os.Kill)
+		signal.Notify(sigint, os.Interrupt, os.Kill, syscall.SIGQUIT)
 		<-sigint
 		cancel()
 	}()
