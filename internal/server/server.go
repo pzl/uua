@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
+	"net"
 	"net/http"
 	"time"
 
@@ -58,7 +60,7 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 	}
 }
 
-func (s *server) Start() (err error) {
+func (s *server) Start(ctx context.Context) (err error) {
 	s.router = chi.NewRouter()
 	s.routes()
 
@@ -92,24 +94,45 @@ func (s *server) Start() (err error) {
 	if s.cfg.SSLCert != "" && s.cfg.SSLKey != "" {
 		s.srv.TLSConfig = sl
 		s.srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
-		s.l.Infof("listening on %s", s.cfg.Addr)
-		err = s.srv.ListenAndServeTLS(s.cfg.SSLCert, s.cfg.SSLKey)
 	} else {
 		s.l.Warn("SSL disabled. Sending credentials over HTTP is not recommended")
-		s.l.Infof("listening on %s", s.cfg.Addr)
-		err = s.srv.ListenAndServe()
 	}
 
-	if err != http.ErrServerClosed {
-		s.l.WithError(err).Error("Http Server stopped unexpectedly")
-		s.Shutdown()
-	} else {
-		s.l.Info("server stopped")
-		return nil
+	ipv4, err := net.Listen("tcp4", s.cfg.Addr)
+	if err != nil {
+		return err
 	}
+	ipv6, err := net.Listen("tcp6", s.cfg.Addr)
+	if err != nil {
+		return err
+	}
+
+	errs := make(chan error)
+	go s.listen(ipv4, s.cfg.SSLCert, s.cfg.SSLKey, errs)
+	go s.listen(ipv6, s.cfg.SSLCert, s.cfg.SSLKey, errs)
+	s.l.Infof("listening on %s", s.cfg.Addr)
+
+	select {
+	case err = <-errs:
+	case <-ctx.Done():
+	}
+	if err != nil && err != http.ErrServerClosed {
+		s.l.WithError(err).Error("Http Server stopped unexpectedly")
+		return err
+	}
+	s.l.Info("server stopped")
 	return nil
+
 }
 
-func (s *server) Shutdown() error {
-	return nil
+func (s *server) listen(l net.Listener, cert, key string, errs chan<- error) {
+	if cert != "" && key != "" {
+		errs <- s.srv.ServeTLS(l, cert, key)
+	} else {
+		errs <- s.srv.Serve(l)
+	}
+}
+
+func (s *server) Shutdown(ctx context.Context) error {
+	return s.srv.Shutdown(ctx)
 }
