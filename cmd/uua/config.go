@@ -56,16 +56,11 @@ func parseCLI() (uua.Secrets, []auth.Method, []server.OptFunc) {
 
 	pflag.Parse()
 
-	switch *v {
-	case 3:
-		c.log.SetLevel(logrus.TraceLevel)
-	case 2:
-		c.log.SetLevel(logrus.DebugLevel)
-	case 1:
-		c.log.SetLevel(logrus.InfoLevel)
-	default:
-		c.log.SetLevel(logrus.WarnLevel)
+	lvls := []logrus.Level{logrus.WarnLevel, logrus.InfoLevel, logrus.DebugLevel, logrus.TraceLevel}
+	if *v > 3 {
+		*v = 3
 	}
+	c.log.SetLevel(lvls[*v])
 
 	c.searchDir("/etc/uua/")
 	c.searchDir(c.XDGConfigHome())
