@@ -52,7 +52,7 @@ func New(secrets uua.Secrets, auths []auth.Method, opts ...OptFunc) *server {
 	}
 
 	if cfg.Log == nil {
-		logger.New(cfg.JSONLog)
+		cfg.Log = logger.New(cfg.JSONLog)
 	}
 	return &server{
 		cfg: &cfg,
