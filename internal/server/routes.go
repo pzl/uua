@@ -7,45 +7,20 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
-	"github.com/pzl/uua/internal/logger"
+	"github.com/pzl/mstk"
 )
 
 func (s *server) routes() {
-	s.router.Use(middleware.RealIP) // X-Forwarded-For
-	s.router.Use(middleware.RequestID)
-	s.router.Use(middleware.RequestLogger(logger.NewChi(s.l)))
-	s.router.Use(middleware.Heartbeat("/ping"))
-	s.router.Use(middleware.Recoverer)
-	s.router.Use(contentJSON)
+	s.router.Use(mstk.DefaultMiddleware(s.l)...)
 	s.router.Use(HSTS)
-	//https://github.com/go-chi/chi#auxiliary-middlewares--packages
 
 	s.router.Route("/api/v1", func(v1 chi.Router) {
-		v1.Use(apiVer(1))
+		v1.Use(mstk.APIVer(1))
 		v1.Post("/login", s.Login)
 		v1.Post("/verify", getBodyToken(s.Verify))
 	})
 
-	s.router.NotFound(notFound())
-}
-
-type mware func(http.Handler) http.Handler
-
-func apiVer(ver int) mware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r = r.WithContext(context.WithValue(r.Context(), "api.version", ver))
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func contentJSON(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		next.ServeHTTP(w, r)
-	})
+	s.router.NotFound(mstk.NotFound)
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
@@ -55,16 +30,6 @@ func HSTS(next http.Handler) http.Handler {
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		next.ServeHTTP(w, r)
 	})
-}
-
-func notFound() http.HandlerFunc {
-	nf := []byte("{\"error\":\"not found\"}")
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(nf) //nolint
-	}
 }
 
 func errJS(w http.ResponseWriter, msg string) {

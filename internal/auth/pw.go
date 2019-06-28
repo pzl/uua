@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pzl/uua/internal/logger"
+	"github.com/pzl/mstk/logger"
 	"github.com/pzl/uua/internal/mkpass"
 )
 

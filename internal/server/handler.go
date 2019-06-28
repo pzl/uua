@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pzl/mstk/logger"
 	"github.com/pzl/uua"
 	"github.com/pzl/uua/internal/auth"
-	"github.com/pzl/uua/internal/logger"
 	"github.com/sirupsen/logrus"
 )
 
