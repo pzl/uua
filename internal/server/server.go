@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/pzl/mstk"
 	"github.com/pzl/mstk/logger"
 	"github.com/pzl/uua"
 	"github.com/pzl/uua/internal/auth"
@@ -70,19 +70,6 @@ func (s *server) Start(ctx context.Context) (err error) {
 		"SSL":  s.cfg.SSLCert != "" && s.cfg.SSLKey != "",
 	}).Debug("Starting UUA Server")
 
-	// https://gist.github.com/denji/12b3a568f092ab951456#perfect-ssl-labs-score-with-go
-	sl := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		PreferServerCipherSuites: true,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		},
-	}
-
 	//ListenAndServe
 	s.srv = &http.Server{
 		Addr:           s.cfg.Addr,
@@ -92,8 +79,8 @@ func (s *server) Start(ctx context.Context) (err error) {
 		MaxHeaderBytes: 1 << 20,
 	}
 	if s.cfg.SSLCert != "" && s.cfg.SSLKey != "" {
-		s.srv.TLSConfig = sl
-		s.srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
+		s.srv.TLSConfig = mstk.TLSConfig()
+		s.srv.TLSNextProto = mstk.TLSNextProto()
 	} else {
 		s.l.Warn("SSL disabled. Sending credentials over HTTP is not recommended")
 	}
